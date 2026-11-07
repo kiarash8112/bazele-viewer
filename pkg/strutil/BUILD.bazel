@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "strutil",
+    srcs = ["strutil.go"],
+    importpath = "example.com/bazelviewer/pkg/strutil",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "strutil_test",
+    srcs = ["strutil_test.go"],
+    embed = [":strutil"],
+)

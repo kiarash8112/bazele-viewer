@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "handler",
+    srcs = ["handler.go"],
+    importpath = "example.com/bazelviewer/internal/handler",
+    visibility = ["//cmd:__subpackages__"],
+    deps = [
+        "//pkg/greeting",
+        "//pkg/store",
+    ],
+)
