@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "api",
+    srcs = ["api.go"],
+    importpath = "example.com/bazelviewer/internal/api",
+    visibility = ["//:__subpackages__"],
+    deps = ["//internal/graph"],
+)
+
+go_test(
+    name = "api_test",
+    srcs = ["api_test.go"],
+    embed = [":api"],
+    deps = ["//internal/graph"],
+)

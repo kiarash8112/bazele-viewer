@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "bazelquery",
+    srcs = ["bazelquery.go"],
+    importpath = "example.com/bazelviewer/internal/bazelquery",
+    visibility = ["//:__subpackages__"],
+    deps = ["//internal/graph"],
+)
+
+go_test(
+    name = "bazelquery_test",
+    srcs = ["bazelquery_test.go"],
+    embed = [":bazelquery"],
+    deps = ["//internal/graph"],
+)
