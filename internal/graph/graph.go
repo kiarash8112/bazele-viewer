@@ -71,6 +71,16 @@ func (g *Graph) Children(label string, opts Options) (Page, bool) {
 	return g.page(ids, opts), true
 }
 
+// Target returns the node for label itself. The boolean is false if the label
+// is not in the graph.
+func (g *Graph) Target(label string, opts Options) (Node, bool) {
+	id, ok := g.lookup(label)
+	if !ok {
+		return Node{}, false
+	}
+	return g.node(id, opts.IncludeExternal), true
+}
+
 func (g *Graph) lookup(label string) (int32, bool) {
 	i, ok := slices.BinarySearch(g.labels, label)
 	return int32(i), ok

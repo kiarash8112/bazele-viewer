@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-13T17:30:49+00:00",
+  "title": "Design System: Bazel Graph",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Canvas Black",
+        "canonical": "oklch(17.7% 0.009 264)",
+        "tonalRamp": [
+          "#090b0f",
+          "#232529",
+          "#404247",
+          "#5f6166",
+          "#808288",
+          "#a2a5ab",
+          "#c6c9cf",
+          "#ebeef5"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "oklch(21.7% 0.013 264)",
+        "tonalRamp": [
+          "#090b11",
+          "#22252b",
+          "#3f4249",
+          "#5e6169",
+          "#7e828a",
+          "#a1a5ad",
+          "#c5c9d2",
+          "#eaeff7"
+        ]
+      },
+      "panel-2": {
+        "role": "neutral",
+        "displayName": "Graphite Raised",
+        "canonical": "oklch(24.7% 0.015 262)",
+        "tonalRamp": [
+          "#080b11",
+          "#21252c",
+          "#3e424a",
+          "#5d616a",
+          "#7d838b",
+          "#a0a5ae",
+          "#c4c9d3",
+          "#e9eff9"
+        ]
+      },
+      "panel-hover": {
+        "role": "neutral",
+        "displayName": "Graphite Hover",
+        "canonical": "oklch(26.3% 0.018 262)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252e",
+          "#3d424c",
+          "#5c616c",
+          "#7c838e",
+          "#9fa5b1",
+          "#c3c9d6",
+          "#e8effb"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(28.5% 0.018 266)",
+        "tonalRamp": [
+          "#080b13",
+          "#21252e",
+          "#3e424c",
+          "#5d616c",
+          "#7d828d",
+          "#a0a5b0",
+          "#c4c9d5",
+          "#e9eefb"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "oklch(35.2% 0.022 264)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#23252a",
+          "#3e424a",
+          "#5c616c",
+          "#7c8290",
+          "#9fa5b1",
+          "#c5c9d2",
+          "#ebeff5"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(93.0% 0.005 258)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#242527",
+          "#404244",
+          "#606164",
+          "#818285",
+          "#a3a5a8",
+          "#c7c9cc",
+          "#edeff2"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink Soft",
+        "canonical": "oklch(78.7% 0.016 261)",
+        "tonalRamp": [
+          "#080b12",
+          "#21252d",
+          "#3d424b",
+          "#5c626a",
+          "#7d838c",
+          "#9fa5af",
+          "#c3c9d4",
+          "#e9eff9"
+        ]
+      },
+      "mute": {
+        "role": "neutral",
+        "displayName": "Mute",
+        "canonical": "oklch(65.5% 0.018 263)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252e",
+          "#3d424c",
+          "#5c616c",
+          "#7d838d",
+          "#9fa5b1",
+          "#c3c9d5",
+          "#e8effb"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "oklch(65.8% 0.182 261)",
+        "tonalRamp": [
+          "#020a1e",
+          "#0c234b",
+          "#1b3f7e",
+          "#2b5db5",
+          "#3e7dec",
+          "#6fa4ff",
+          "#a0caff",
+          "#d2f0ff"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Pale Signal",
+        "canonical": "oklch(80.5% 0.098 261)",
+        "tonalRamp": [
+          "#060b15",
+          "#19253a",
+          "#2f4263",
+          "#47618f",
+          "#6182bc",
+          "#8aa6d7",
+          "#b4caf1",
+          "#e0efff"
+        ]
+      },
+      "accent-bg": {
+        "role": "primary",
+        "displayName": "Deep Signal Wash",
+        "canonical": "oklch(25.1% 0.051 264)",
+        "tonalRamp": [
+          "#080b11",
+          "#1f2530",
+          "#394253",
+          "#556179",
+          "#7383a1",
+          "#98a5bf",
+          "#bfcade",
+          "#e7effd"
+        ]
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "OK Green",
+        "canonical": "oklch(69.5% 0.139 157)",
+        "tonalRamp": [
+          "#000f06",
+          "#012e19",
+          "#044f2f",
+          "#087447",
+          "#199a61",
+          "#64ba8a",
+          "#9bdab4",
+          "#d0fbe0"
+        ]
+      },
+      "warn": {
+        "role": "status",
+        "displayName": "Amber",
+        "canonical": "oklch(76.5% 0.138 80)",
+        "tonalRamp": [
+          "#130900",
+          "#342100",
+          "#5a3c00",
+          "#825800",
+          "#ac7700",
+          "#c99d4e",
+          "#e6c48a",
+          "#ffebc4"
+        ]
+      },
+      "bad": {
+        "role": "status",
+        "displayName": "Coral",
+        "canonical": "oklch(69.6% 0.160 26)",
+        "tonalRamp": [
+          "#190404",
+          "#411412",
+          "#6e2824",
+          "#9e3d38",
+          "#d0554e",
+          "#ea847a",
+          "#ffb1a8",
+          "#ffded7"
+        ]
+      },
+      "grid-dot": {
+        "role": "neutral",
+        "displayName": "Grid Dot",
+        "canonical": "oklch(28.8% 0.020 264)",
+        "tonalRamp": [
+          "#070b14",
+          "#20252f",
+          "#3d424d",
+          "#5c616d",
+          "#7c828f",
+          "#9fa5b2",
+          "#c3c9d6",
+          "#e8effc"
+        ]
+      },
+      "edge": {
+        "role": "neutral",
+        "displayName": "Edge Grey",
+        "canonical": "oklch(37.1% 0.022 264)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#23252a",
+          "#3e424a",
+          "#5c616c",
+          "#7c8290",
+          "#9fa5b1",
+          "#c5c9d2",
+          "#ebeff5"
+        ]
+      },
+      "mini-mask": {
+        "role": "neutral",
+        "displayName": "Minimap Mask",
+        "canonical": "rgba(15, 17, 21, 0.72)"
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Layer caption over the canvas."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Product name and status panel headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base text, panel copy, buttons."
+      },
+      "crumb": {
+        "displayName": "Crumb",
+        "purpose": "Breadcrumb steps; target steps switch to mono."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Status text and caption sub-line, tabular numerals."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Dep counts, stub pills, external badge."
+      },
+      "label-mono": {
+        "displayName": "Label Mono",
+        "purpose": "Target labels in nodes, two-line clamp."
+      },
+      "label-mono-focus": {
+        "displayName": "Label Mono Focus",
+        "purpose": "The focused target's label, three-line clamp."
+      },
+      "kind-mono": {
+        "displayName": "Kind Mono",
+        "purpose": "Rule kind above each label."
+      }
+    },
+    "shadows": [
+      {
+        "name": "focus-lift",
+        "value": "0 10px 28px -8px rgba(0, 0, 0, 0.7)",
+        "purpose": "Only on the focused node, lifting it over the edges it emits."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The single curve for glides, entrances and camera moves."
+      },
+      {
+        "name": "glide",
+        "value": "460ms",
+        "purpose": "Node position change and the matching camera move on drill-down."
+      },
+      {
+        "name": "leave",
+        "value": "180ms ease-out",
+        "purpose": "Opacity fade of nodes and edges leaving the layer."
+      },
+      {
+        "name": "enter",
+        "value": "380ms, translateY(-10px) to 0, 18ms stagger capped at 320ms",
+        "purpose": "New deps dropping into place."
+      },
+      {
+        "name": "hover",
+        "value": "120-150ms",
+        "purpose": "Colour, border and edge-stroke changes on hover."
+      },
+      {
+        "name": "pulse",
+        "value": "1.2s ease-in-out infinite",
+        "purpose": "Busy status dot."
+      },
+      {
+        "name": "spin",
+        "value": "900ms linear infinite",
+        "purpose": "Loader and reload icons while busy."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "720px"
+      }
+    ],
+    "layout": {
+      "topbarHeight": "48px",
+      "nodeWidth": "248px",
+      "nodeHeight": "68px",
+      "focusWidth": "360px",
+      "stubReserve": "40px",
+      "maxColumns": 8,
+      "captionReserve": "76px",
+      "zoom": {
+        "min": 0.1,
+        "max": 2,
+        "frameMin": 0.35,
+        "frameMinNarrow": 0.6,
+        "frameMax": 1
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Drillable Target Node",
+      "kind": "card",
+      "refersTo": "target-node",
+      "description": "A dep with deps of its own: a button card with a dotted stub and count pill below.",
+      "html": "<div class=\"ds-wrap\"><button type=\"button\" class=\"ds-node ds-drill\"><span class=\"ds-meta\"><span class=\"ds-kind\">go_library</span></span><span class=\"ds-label\"><span class=\"ds-pkg\">//internal/api</span><span class=\"ds-name\">:api</span></span></button><div class=\"ds-stub\" aria-hidden=\"true\"><span class=\"ds-stub-line\"></span><span class=\"ds-stub-count\">1 dep <svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></span></div></div>",
+      "css": ".ds-node { display: flex; flex-direction: column; gap: 3px; width: 248px; min-height: 68px; padding: 10px 12px 11px; border: 1px solid var(--line, #262a33); border-radius: 12px; background: var(--panel, #171a20); text-align: left; font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); color: var(--ink, #e6e8eb); } .ds-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mute, #8b919c); } .ds-kind { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); } .ds-counts { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--accent-ink, #9cc0ff); } .ds-label { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); font-size: 12px; line-height: 1.35; } .ds-pkg { color: var(--mute, #8b919c); } .ds-name { color: var(--ink, #e6e8eb); } .ds-wrap { display: inline-flex; flex-direction: column; align-items: center; } .ds-drill { cursor: pointer; transition: border-color 140ms, background 140ms; } .ds-drill:hover, .ds-drill:focus-visible { border-color: var(--line-strong, #353b47); background: var(--panel-hover, #20252e); } .ds-drill:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: 3px; } .ds-stub { display: flex; flex-direction: column; align-items: center; } .ds-stub-line { height: 14px; border-left: 1.5px dotted var(--line-strong, #353b47); } .ds-stub-count { display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px 1px 8px; border: 1px dashed var(--line-strong, #353b47); border-radius: 999px; font: 11px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); color: var(--mute, #8b919c); font-variant-numeric: tabular-nums; transition: color 140ms, border-color 140ms; } .ds-stub-line { transition: border-color 140ms; } .ds-wrap:hover .ds-stub-line, .ds-wrap:focus-within .ds-stub-line { border-color: var(--accent, #4c8dff); } .ds-wrap:hover .ds-stub-count, .ds-wrap:focus-within .ds-stub-count { color: var(--accent-ink, #9cc0ff); border-color: var(--accent, #4c8dff); }"
+    },
+    {
+      "name": "Leaf Target Node",
+      "kind": "card",
+      "refersTo": "target-node-leaf",
+      "description": "A target with no deps: unfilled outline, softer name, no stub, not interactive.",
+      "html": "<div class=\"ds-node ds-leaf\"><span class=\"ds-meta\"><span class=\"ds-kind\">go_library</span></span><span class=\"ds-label\"><span class=\"ds-pkg\">//web</span><span class=\"ds-name\">:web</span></span></div>",
+      "css": ".ds-node { display: flex; flex-direction: column; gap: 3px; width: 248px; min-height: 68px; padding: 10px 12px 11px; border: 1px solid var(--line, #262a33); border-radius: 12px; background: var(--panel, #171a20); text-align: left; font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); color: var(--ink, #e6e8eb); } .ds-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mute, #8b919c); } .ds-kind { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); } .ds-counts { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--accent-ink, #9cc0ff); } .ds-label { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); font-size: 12px; line-height: 1.35; } .ds-pkg { color: var(--mute, #8b919c); } .ds-name { color: var(--ink, #e6e8eb); } .ds-leaf { background: transparent; } .ds-leaf .ds-name { color: var(--ink-2, #b4bac4); }"
+    },
+    {
+      "name": "Focus Node",
+      "kind": "custom",
+      "refersTo": "target-node-focus",
+      "description": "The target whose layer is shown: accent ring, accent wash, the only lifted object.",
+      "html": "<div class=\"ds-node ds-focus\"><span class=\"ds-meta\"><span class=\"ds-kind\">go_library</span><span class=\"ds-counts\">3 direct deps · used by 1</span></span><span class=\"ds-label\"><span class=\"ds-pkg\">//cmd/viewer</span><span class=\"ds-name\">:viewer_lib</span></span></div>",
+      "css": ".ds-node { display: flex; flex-direction: column; gap: 3px; width: 248px; min-height: 68px; padding: 10px 12px 11px; border: 1px solid var(--line, #262a33); border-radius: 12px; background: var(--panel, #171a20); text-align: left; font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); color: var(--ink, #e6e8eb); } .ds-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mute, #8b919c); } .ds-kind { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); } .ds-counts { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--accent-ink, #9cc0ff); } .ds-label { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); font-size: 12px; line-height: 1.35; } .ds-pkg { color: var(--mute, #8b919c); } .ds-name { color: var(--ink, #e6e8eb); } .ds-focus { width: 360px; border-color: var(--accent, #4c8dff); background: var(--accent-bg, #15213a); box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.7); padding: 12px 16px 14px; gap: 5px; } .ds-focus .ds-label { font-size: 14px; } .ds-focus .ds-pkg { color: var(--accent-ink, #9cc0ff); opacity: 0.8; } .ds-focus .ds-name { color: #fff; font-weight: 600; }"
+    },
+    {
+      "name": "Show More Node",
+      "kind": "button",
+      "refersTo": "show-more-node",
+      "description": "Loads the next page of a large layer; dashed because it is not a target.",
+      "html": "<button type=\"button\" class=\"ds-more\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg><span>Show 200 more<small>1,240 not loaded yet</small></span></button>",
+      "css": ".ds-more { display: flex; align-items: center; gap: 10px; width: 248px; min-height: 68px; padding: 10px 12px 11px; border: 1px dashed var(--line, #262a33); border-radius: 12px; background: transparent; color: var(--ink-2, #b4bac4); font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); text-align: left; cursor: pointer; } .ds-more span { display: flex; flex-direction: column; } .ds-more small { color: var(--mute, #8b919c); font-size: 11px; } .ds-more:hover { border-color: var(--accent, #4c8dff); color: var(--accent-ink, #9cc0ff); } .ds-more:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: 2px; }"
+    },
+    {
+      "name": "Breadcrumb",
+      "kind": "nav",
+      "refersTo": "crumb",
+      "description": "The path back up the graph; the current step is the accent chip.",
+      "html": "<nav class=\"ds-crumbs\" aria-label=\"Breadcrumb\"><button type=\"button\" class=\"ds-crumb\">Roots</button><span class=\"ds-sep\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></span><button type=\"button\" class=\"ds-crumb ds-mono\">//cmd/viewer:viewer</button><span class=\"ds-sep\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></span><button type=\"button\" class=\"ds-crumb ds-mono\" aria-current=\"page\">//cmd/viewer:viewer_lib</button></nav>",
+      "css": ".ds-crumbs { display: flex; align-items: center; gap: 2px; padding: 9px 16px; background: var(--panel, #171a20); border-bottom: 1px solid var(--line, #262a33); } .ds-sep { display: flex; color: var(--mute, #8b919c); } .ds-crumb { border: 0; background: transparent; color: var(--ink-2, #b4bac4); padding: 4px 8px; border-radius: 6px; font: 12.5px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); cursor: pointer; transition: background 120ms, color 120ms; } .ds-mono { font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace); } .ds-crumb:hover { background: var(--panel-2, #1d2128); color: var(--ink, #e6e8eb); } .ds-crumb:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: 2px; } .ds-crumb[aria-current=page] { background: var(--accent-bg, #15213a); color: var(--accent-ink, #9cc0ff); cursor: default; }"
+    },
+    {
+      "name": "Status Cluster",
+      "kind": "custom",
+      "refersTo": "icon-button",
+      "description": "Dot plus sentence for graph state, the incomplete-graph chip, and the reload icon button.",
+      "html": "<div class=\"ds-status\"><span class=\"ds-chip\">Incomplete graph</span><span class=\"ds-status-text\"><span class=\"ds-dot\"></span>17 targets · loaded 08:55 PM</span><button type=\"button\" class=\"ds-icon-btn\" aria-label=\"Reload graph\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/></svg></button></div>",
+      "css": ".ds-status { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--panel, #171a20); font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); } .ds-status-text { display: flex; align-items: center; gap: 7px; color: var(--mute, #8b919c); font-size: 12px; font-variant-numeric: tabular-nums; } .ds-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok, #3fb67a); } .ds-chip { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; color: var(--warn, #e0a83a); background: rgba(224, 168, 58, 0.12); } .ds-icon-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--ink-2, #b4bac4); cursor: pointer; } .ds-icon-btn:hover { background: var(--panel-2, #1d2128); border-color: var(--line, #262a33); color: var(--ink, #e6e8eb); } .ds-icon-btn:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: 2px; }"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The retry action inside status panels.",
+      "html": "<button type=\"button\" class=\"ds-btn\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/></svg> Try again</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line-strong, #353b47); border-radius: 8px; background: var(--panel-2, #1d2128); color: var(--ink, #e6e8eb); font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); cursor: pointer; } .ds-btn svg { width: 14px; height: 14px; } .ds-btn:hover { border-color: var(--accent, #4c8dff); } .ds-btn:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Panel",
+      "kind": "card",
+      "refersTo": "status-panel",
+      "description": "Centred overlay for loading, empty and error states; errors get a coral border and code well.",
+      "html": "<section class=\"ds-panel ds-panel-bad\" role=\"alert\"><h2>Couldn't load the build graph</h2><pre>ERROR: no such package '//foo'</pre><p>Fix the reported problem, then try again.</p></section>",
+      "css": ".ds-panel { width: min(460px, 100%); padding: 18px 20px; border: 1px solid var(--line, #262a33); border-radius: 14px; background: var(--panel, #171a20); font: 13px/1.45 var(--sans, ui-sans-serif, system-ui, sans-serif); color: var(--ink, #e6e8eb); } .ds-panel-bad { border-color: rgba(240, 112, 103, 0.45); } .ds-panel h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; } .ds-panel p { margin: 0; color: var(--ink-2, #b4bac4); } .ds-panel pre { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg, #0f1115); color: var(--bad, #f07067); font: 12px/1.45 var(--mono, ui-monospace, Menlo, Consolas, monospace); white-space: pre-wrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Single Lit Layer",
+    "overview": "The viewer is the category-standard dark graph canvas, executed straight: a near-black dotted field, raised graphite cards, hairline borders, and one blue accent. Everything on the canvas belongs to one layer of the build graph: the focused target sits at the top, ringed and filled in accent, and its direct deps hang below it in a centred wrapped grid. Everything else is cleared away. The accent marks \"where you are\"; nothing else on screen competes with it.\n\nThe density is that of a developer tool that lives beside a dark editor: 13px system UI for chrome, monospace for every Bazel label and rule kind, tabular numerals for every count. Surfaces are tonal, not shadowed; depth comes from three close steps of graphite (bg, panel, panel-2) separated by 1px lines. The one drop shadow belongs to the focused node, lifting it over the edges it emits.\n\nMotion carries the navigation. On click, the other nodes fade out, the clicked node glides into the focus slot while the camera moves with it, and the new deps fade down into place with a short stagger. Reduced-motion users get the same states without the travel.",
+    "keyCharacteristics": [
+      "Near-black dotted canvas (22px grid) with graphite cards and 1px hairlines",
+      "One blue accent reserved for focus, the current breadcrumb, hovered edges, and keyboard focus",
+      "System UI for chrome, monospace for Bazel labels and rule kinds, tabular numerals for counts",
+      "Tonal layering instead of shadows, except the focused node",
+      "Drillable versus leaf is shown by fill and by a dotted stub with a count pill, never by colour alone",
+      "Navigation is animated as a glide plus fade on a single ease-out curve"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Blue means \"here\": the focused target, the current breadcrumb, the edge you are pointing at, the element with keyboard focus. Never use it for decoration or for a second category.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Is Never Hidden Rule",
+        "body": "Loading, stale, incomplete and error states always have a visible colour-plus-text treatment (dot and sentence, chip, or panel); colour never carries the state alone.",
+        "section": "colors"
+      },
+      {
+        "name": "The Speak Bazel Rule",
+        "body": "Every label and rule kind is monospace and printed exactly as Bazel reports it. The package path is muted and the `:name` carries the emphasis.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Count Rule",
+        "body": "Every number that can change (targets, deps, used-by, shown of total) uses tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Except Focus Rule",
+        "body": "No card, bar, panel or control casts a shadow. The focused node is the single lifted object on the canvas.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep Signal Blue for the focused target, the current breadcrumb, the hovered edge and keyboard focus only.",
+      "**Do** set every Bazel label and rule kind in the mono stack, with the package path muted and the `:name` emphasised.",
+      "**Do** show \"deeper layer\" with the dotted stub and dashed count pill, and \"leaf\" with an unfilled card and no stub.",
+      "**Do** separate planes with the graphite steps and 1px hairlines; reserve the focus lift shadow for the focused node.",
+      "**Do** pair every status colour with words (dot plus sentence, chip, or panel).",
+      "**Do** animate navigation with the single ease-out curve and turn the travel off under reduced motion."
+    ],
+    "donts": [
+      "**Don't** draw more than one layer: no grandchildren, no full-graph view.",
+      "**Don't** introduce a second accent hue or use the status colours decoratively.",
+      "**Don't** add shadows to cards, bars or panels.",
+      "**Don't** rename or prettify Bazel labels and rule kinds."
+    ]
+  }
+}

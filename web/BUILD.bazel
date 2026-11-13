@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+# dist/ is produced by `npm --prefix web run build`. allow_empty keeps
+# `bazel query //...` working in a fresh checkout that has not built it yet.
+go_library(
+    name = "web",
+    srcs = ["embed.go"],
+    embedsrcs = glob(
+        ["dist/**"],
+        allow_empty = True,
+    ),
+    importpath = "example.com/bazelviewer/web",
+    visibility = ["//cmd/viewer:__pkg__"],
+)

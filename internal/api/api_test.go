@@ -85,6 +85,9 @@ func TestRootsThenChildren(t *testing.T) {
 	if children.Total != 2 || len(children.Nodes) != 1 || children.Nodes[0].Label != "//b:two" {
 		t.Errorf("children = %+v", children)
 	}
+	if children.Target == nil || children.Target.Label != "//a:lib" || children.Target.DepCount != 2 {
+		t.Errorf("children.Target = %+v", children.Target)
+	}
 }
 
 func TestBadRequests(t *testing.T) {

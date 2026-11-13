@@ -14,6 +14,7 @@ import (
 
 	"example.com/bazelviewer/internal/api"
 	"example.com/bazelviewer/internal/bazelquery"
+	"example.com/bazelviewer/web"
 )
 
 func main() {
@@ -40,9 +41,13 @@ func main() {
 	})
 	server.Refresh()
 
+	mux := http.NewServeMux()
+	mux.Handle("/api/", server.Handler())
+	mux.Handle("/", http.FileServerFS(web.FS()))
+
 	httpServer := &http.Server{
 		Addr:              *addr,
-		Handler:           server.Handler(),
+		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {

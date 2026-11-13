@@ -27,6 +27,7 @@ type Source interface {
 	Len() int
 	Roots(opts graph.Options) graph.Page
 	Children(label string, opts graph.Options) (graph.Page, bool)
+	Target(label string, opts graph.Options) (graph.Node, bool)
 }
 
 // Loader produces a fresh Source. A non-empty warning marks it as incomplete.
@@ -138,6 +139,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 type pageResponse struct {
+	Target *graph.Node  `json:"target,omitempty"` // The queried target, for /api/children.
 	Nodes  []graph.Node `json:"nodes"`
 	Total  int          `json:"total"`
 	Offset int          `json:"offset"`
@@ -177,7 +179,14 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown target: "+label)
 		return
 	}
-	writePage(w, page, opts)
+	target, _ := src.Target(label, opts)
+	writeJSON(w, http.StatusOK, pageResponse{
+		Target: &target,
+		Nodes:  page.Nodes,
+		Total:  page.Total,
+		Offset: opts.Offset,
+		Limit:  opts.Limit,
+	})
 }
 
 // source returns the current graph, or writes a 503 if none has loaded yet.
