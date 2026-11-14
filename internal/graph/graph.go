@@ -88,8 +88,9 @@ type hotspots struct {
 // Len returns the number of targets in the graph.
 func (g *Graph) Len() int { return len(g.labels) }
 
-// Roots returns the main entry points of the workspace: binaries, or, if the
-// workspace has none, the targets that no non-test target depends on.
+// Roots returns the main entry points of the workspace: the binaries that no
+// non-test target depends on, or, if there are none, all the targets that no
+// non-test target depends on.
 func (g *Graph) Roots(opts Options) Page {
 	ids := g.roots
 	if opts.IncludeTests {
@@ -571,9 +572,13 @@ func (g *Graph) computeRoots() {
 		switch {
 		case g.isTest(id):
 			tests = append(tests, id)
+		case g.hasNonTestParent(id):
+			// Not an entry point, even if it is a binary: a code generator
+			// or other tool another target runs, such as rules_js's
+			// _run_binary and js_binary.
 		case strings.HasSuffix(g.kindNames[g.kinds[id]], "_binary"):
 			binaries = append(binaries, id)
-		case !g.hasNonTestParent(id):
+		default:
 			unused = append(unused, id)
 		}
 	}

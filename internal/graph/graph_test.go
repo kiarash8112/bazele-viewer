@@ -42,6 +42,20 @@ func TestRootsAreBinaries(t *testing.T) {
 	}
 }
 
+func TestRootsSkipBinariesOtherTargetsUse(t *testing.T) {
+	b := NewBuilder()
+	b.AddRule("//app:bin", "go_binary", []string{"//app:lib"})
+	b.AddRule("//app:lib", "go_library", []string{"//gen:run"})
+	b.AddRule("//gen:run", "_run_binary", []string{"//gen:tool"}) // used by //app:lib
+	b.AddRule("//gen:tool", "js_binary", nil)                     // used by //gen:run
+	b.AddRule("//cli:bin", "go_binary", nil)
+	b.AddRule("//cli:bin_test", "go_test", []string{"//cli:bin"}) // a test's use keeps it a root
+	got := labels(b.Build().Roots(Options{}))
+	if want := []string{"//app:bin", "//cli:bin"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Roots = %v, want %v", got, want)
+	}
+}
+
 func TestRootsIncludeTests(t *testing.T) {
 	got := labels(sample().Roots(Options{IncludeTests: true}))
 	if want := []string{"//app:bin", "//app:lib_test"}; !reflect.DeepEqual(got, want) {
