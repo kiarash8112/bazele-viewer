@@ -724,6 +724,13 @@ button {
   cursor: default;
 }
 
+.seg button:disabled {
+  background: transparent;
+  color: var(--mute);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---- Hotspots ---- */
 
 .hot-main {
@@ -775,8 +782,18 @@ button {
 
 .hot-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 10px 16px;
+}
+
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mute);
+  font-size: 12.5px;
+  white-space: nowrap;
 }
 
 .search {

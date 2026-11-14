@@ -48,6 +48,7 @@ type Options struct {
 	IncludeTests    bool   // Roots only: also return test targets.
 	IncludeExternal bool   // Show targets from @external repositories.
 	Query           string // Hotspots only: keep labels that contain it, ignoring case.
+	SortByChanges   bool   // Hotspots only: rank by changes, then dependents, not by dependents.
 	Offset          int
 	Limit           int
 }
@@ -76,10 +77,12 @@ type Graph struct {
 // hotspots ranks targets and source files by how much of the graph depends on
 // them. It is computed on first use, so loading the graph stays fast.
 type hotspots struct {
-	dependents     []int32 // target id -> transitive dependents
-	fileDependents []int32 // file id -> transitive dependents
-	targets        []int32 // target ids, most dependents first
-	files          []int32 // file ids, most dependents first
+	dependents       []int32 // target id -> transitive dependents
+	fileDependents   []int32 // file id -> transitive dependents
+	targets          []int32 // target ids, most dependents first
+	files            []int32 // file ids, most dependents first
+	targetsByChanges []int32 // target ids, most changes first, then most dependents
+	filesByChanges   []int32 // file ids, most changes first, then most dependents
 }
 
 // Len returns the number of targets in the graph.
@@ -124,6 +127,9 @@ func (g *Graph) Target(label string, opts Options) (Node, bool) {
 func (g *Graph) Hotspots(opts Options) Page {
 	hot := g.hotspots()
 	ids := hot.targets
+	if opts.SortByChanges {
+		ids = hot.targetsByChanges
+	}
 	if !opts.IncludeExternal {
 		ids = g.withoutExternal(ids)
 	}
@@ -177,7 +183,8 @@ func count(counts []int32, id int32) *int {
 // SetChanges records the commits that changed each source file, keyed by path
 // relative to the workspace (see gitchanges.Load). A target's count is the
 // number of distinct commits that changed any of its own source files. Call it
-// before the graph is shared.
+// before the graph is shared: the hotspot rankings, computed on first use, sort
+// by these counts.
 func (g *Graph) SetChanges(commitsByPath map[string][]int32) {
 	g.fileChanges = make([]int32, len(g.files))
 	ruleCommits := make([][]int32, len(g.labels))
@@ -209,7 +216,11 @@ func labelPath(label string) string {
 // rules that use them.
 func (g *Graph) FileHotspots(opts Options) Page {
 	hot := g.hotspots()
-	ids, ranks := search(hot.files, func(id int32) string { return g.files[id] }, opts.Query)
+	ids := hot.files
+	if opts.SortByChanges {
+		ids = hot.filesByChanges
+	}
+	ids, ranks := search(ids, func(id int32) string { return g.files[id] }, opts.Query)
 	start, end := window(len(ids), opts)
 	nodes := make([]Node, 0, end-start)
 	for i := start; i < end; i++ {
@@ -281,22 +292,42 @@ func (g *Graph) computeHotspots() {
 
 	g.hot.dependents = dependents[:n]
 	g.hot.fileDependents = dependents[n:]
-	g.hot.targets = rankByDependents(g.hot.dependents, func(id int32) int { return len(g.parents[id]) })
-	g.hot.files = rankByDependents(g.hot.fileDependents, func(id int32) int { return len(g.fileUsers[id]) })
+
+	targetDependents := func(id int32) int { return int(g.hot.dependents[id]) }
+	targetDirect := func(id int32) int { return len(g.parents[id]) }
+	targetChanges := func(id int32) int { return countAt(g.changes, id) }
+	fileDependents := func(id int32) int { return int(g.hot.fileDependents[id]) }
+	fileDirect := func(id int32) int { return len(g.fileUsers[id]) }
+	fileChanges := func(id int32) int { return countAt(g.fileChanges, id) }
+
+	g.hot.targets = rankBy(n, targetDependents, targetDirect)
+	g.hot.files = rankBy(len(g.files), fileDependents, fileDirect)
+	g.hot.targetsByChanges = rankBy(n, targetChanges, targetDependents, targetDirect)
+	g.hot.filesByChanges = rankBy(len(g.files), fileChanges, fileDependents, fileDirect)
 }
 
-// rankByDependents returns the ids ordered by dependents, then by direct
-// dependents, both descending. Ids are in label order, so ties keep it.
-func rankByDependents(dependents []int32, direct func(id int32) int) []int32 {
-	ids := make([]int32, len(dependents))
+// countAt returns counts[id], or 0 if the counts are unknown.
+func countAt(counts []int32, id int32) int {
+	if counts == nil {
+		return 0
+	}
+	return int(counts[id])
+}
+
+// rankBy returns ids 0..n-1 ordered by each key in turn, all descending. Ids
+// are in label order, so full ties keep it.
+func rankBy(n int, keys ...func(id int32) int) []int32 {
+	ids := make([]int32, n)
 	for i := range ids {
 		ids[i] = int32(i)
 	}
 	slices.SortStableFunc(ids, func(x, y int32) int {
-		if c := cmp.Compare(dependents[y], dependents[x]); c != 0 {
-			return c
+		for _, key := range keys {
+			if c := cmp.Compare(key(y), key(x)); c != 0 {
+				return c
+			}
 		}
-		return cmp.Compare(direct(y), direct(x))
+		return 0
 	})
 	return ids
 }

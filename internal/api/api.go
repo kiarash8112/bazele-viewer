@@ -193,8 +193,9 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleHotspots ranks targets (of=targets, the default) or source files
-// (of=files) by their transitive dependents. q keeps the labels that contain
-// it, each with its rank in the full list.
+// (of=files) by their transitive dependents, or with sort=changes by their
+// recent changes. q keeps the labels that contain it, each with its rank in
+// the full list.
 func (s *Server) handleHotspots(w http.ResponseWriter, r *http.Request) {
 	opts, err := parseOptions(r)
 	if err != nil {
@@ -254,6 +255,13 @@ func parseOptions(r *http.Request) (graph.Options, error) {
 		return opts, fmt.Errorf("invalid external: %q", q.Get("external"))
 	}
 	opts.Query = q.Get("q")
+	switch v := q.Get("sort"); v {
+	case "", "dependents":
+	case "changes":
+		opts.SortByChanges = true
+	default:
+		return opts, fmt.Errorf("invalid sort: %q (must be dependents or changes)", v)
+	}
 	return opts, nil
 }
 

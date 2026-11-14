@@ -15,6 +15,7 @@ export interface Target {
 }
 
 export type HotspotKind = "targets" | "files";
+export type HotspotSort = "dependents" | "changes";
 
 export interface Page {
   /** The queried target itself (children requests only). */
@@ -81,17 +82,19 @@ export function fetchLayer(label: string | null, offset: number, signal?: AbortS
 export const HOTSPOT_PAGE_SIZE = 100;
 
 /**
- * Fetches targets or source files ranked by their transitive dependents,
- * keeping only labels that contain `search` (ignoring case) when it is set.
+ * Fetches targets or source files ranked by their transitive dependents, or by
+ * their recent changes, keeping only labels that contain `search` (ignoring
+ * case) when it is set.
  */
 export function fetchHotspots(
   of: HotspotKind,
+  sort: HotspotSort,
   offset: number,
   external: boolean,
   search: string,
   signal?: AbortSignal,
 ): Promise<Page> {
-  const q = new URLSearchParams({ of, offset: String(offset), limit: String(HOTSPOT_PAGE_SIZE) });
+  const q = new URLSearchParams({ of, sort, offset: String(offset), limit: String(HOTSPOT_PAGE_SIZE) });
   if (external) q.set("external", "true");
   if (search) q.set("q", search);
   return getJSON<Page>(`/api/hotspots?${q}`, signal);

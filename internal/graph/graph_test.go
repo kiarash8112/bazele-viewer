@@ -292,3 +292,58 @@ func TestSetChangesCountsDistinctCommits(t *testing.T) {
 		t.Errorf("file changes = %v, want %v", got, want)
 	}
 }
+
+func TestSortByChanges(t *testing.T) {
+	g := hotspotSample()
+	// //util:a and //app:lib_test tie on changes; //util:a has more dependents.
+	g.SetChanges(map[string][]int32{
+		"app/main.go": {0, 1, 2},
+		"app/lib.go":  {3},
+		"util/a.go":   {3},
+	})
+	type entry struct {
+		Label   string
+		Rank    int
+		Changes int
+	}
+	entries := func(p Page) []entry {
+		out := make([]entry, 0, len(p.Nodes))
+		for _, n := range p.Nodes {
+			out = append(out, entry{n.Label, n.Rank, *n.Changes})
+		}
+		return out
+	}
+
+	got := entries(g.Hotspots(Options{SortByChanges: true}))
+	want := []entry{
+		{"//app:bin", 1, 3},
+		{"//util:a", 2, 1},  // 3 dependents
+		{"//app:lib", 3, 1}, // 2 dependents
+		{"//app:lib_test", 4, 1},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Hotspots by changes = %v, want %v", got, want)
+	}
+
+	// A search keeps ranks from the order asked for.
+	got = entries(g.Hotspots(Options{SortByChanges: true, Query: "app:lib"}))
+	if want := []entry{{"//app:lib", 3, 1}, {"//app:lib_test", 4, 1}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Hotspots by changes, searched = %v, want %v", got, want)
+	}
+
+	got = entries(g.FileHotspots(Options{SortByChanges: true}))
+	want = []entry{
+		{"//app:main.go", 1, 3},
+		{"//util:a.go", 2, 1}, // 4 dependents
+		{"//app:lib.go", 3, 1},
+		{"//unused:x.go", 4, 0},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("FileHotspots by changes = %v, want %v", got, want)
+	}
+
+	// The default order is unchanged.
+	if first := g.Hotspots(Options{}).Nodes[0].Label; first != "//util:a" {
+		t.Errorf("first by dependents = %s, want //util:a", first)
+	}
+}

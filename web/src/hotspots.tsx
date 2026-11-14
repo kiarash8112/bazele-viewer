@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LoaderCircle, Plus, RefreshCw, Search } from "lucide-react";
-import { fetchHotspots, HOTSPOT_PAGE_SIZE, type HotspotKind, type Target } from "./api";
+import { fetchHotspots, HOTSPOT_PAGE_SIZE, type HotspotKind, type HotspotSort, type Target } from "./api";
 import { ExternalBadge, Label } from "./nodes";
 
 interface Loaded {
@@ -13,16 +13,24 @@ interface Loaded {
 // The window the server counts changes over (changesSince in cmd/viewer).
 const CHANGES_WINDOW = "6 months";
 
-const DESCRIPTIONS: Record<HotspotKind, string> = {
-  targets:
-    "Targets ranked by how many targets depend on them, directly or through other targets. " +
-    "A change to one near the top affects that many targets. " +
-    `Changes counts the commits in the last ${CHANGES_WINDOW} that touched its source files.`,
-  files:
-    "Source files ranked by how many targets depend on the rules that use them. " +
-    "Editing one near the top affects that many targets. " +
-    `Changes counts the commits in the last ${CHANGES_WINDOW} that touched the file.`,
-};
+function describe(of: HotspotKind, sort: HotspotSort): string {
+  const what = of === "files" ? "Source files" : "Targets";
+  const changes =
+    of === "files"
+      ? `the commits in the last ${CHANGES_WINDOW} that touched the file`
+      : `the commits in the last ${CHANGES_WINDOW} that touched its source files`;
+  const dependents =
+    of === "files"
+      ? "how many targets depend on the rules that use them"
+      : "how many targets depend on them, directly or through other targets";
+  if (sort === "changes") {
+    return `${what} ranked by changes: ${changes}. Ties go to the one more targets depend on.`;
+  }
+  return (
+    `${what} ranked by ${dependents}. A change to one near the top affects that many targets. ` +
+    `Changes counts ${changes}.`
+  );
+}
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -32,7 +40,7 @@ function plural(n: number, word: string): string {
   return `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 }
 
-/** Ranks targets or source files by their transitive dependents. */
+/** Ranks targets or source files by their transitive dependents or recent changes. */
 export function Hotspots(props: {
   of: HotspotKind;
   ready: boolean;
@@ -42,6 +50,7 @@ export function Hotspots(props: {
 }) {
   const { of, ready, version } = props;
   const [external, setExternal] = useState(false);
+  const [sort, setSort] = useState<HotspotSort>("dependents");
   const [input, setInput] = useState(""); // What is typed in the search box.
   const [search, setSearch] = useState(""); // The search the list shows, trailing `input`.
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -51,8 +60,8 @@ export function Hotspots(props: {
   const [retryTick, setRetryTick] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const withExternal = of === "targets" && external;
-  const listKey = `${of}@${withExternal}@${version}`; // The ranking, before any search.
-  const key = `${listKey}@${search}`;
+  const listKey = `${of}@${withExternal}@${version}`; // The targets or files, before any sort or search.
+  const key = `${listKey}@${sort}@${search}`;
 
   // Search as the user types, without a request per keystroke.
   useEffect(() => {
@@ -78,17 +87,20 @@ export function Hotspots(props: {
     if (!ready) return;
     const ctl = new AbortController();
     setError(null);
-    fetchHotspots(of, 0, withExternal, search, ctl.signal)
+    fetchHotspots(of, sort, 0, withExternal, search, ctl.signal)
       .then((page) => {
         setLoaded({ key, search, items: page.nodes, total: page.total });
-        // Remember the top of the unfiltered ranking, so bars keep one scale while searching.
-        if (!search) setTops((prev) => ({ ...prev, [listKey]: page.nodes[0]?.dependents ?? 0 }));
+        // Remember the most dependents of any entry, so bars keep one scale
+        // while searching or sorting by changes.
+        if (!search && sort === "dependents") {
+          setTops((prev) => ({ ...prev, [listKey]: page.nodes[0]?.dependents ?? 0 }));
+        }
       })
       .catch((err) => {
         if (!ctl.signal.aborted) setError(errorText(err));
       });
     return () => ctl.abort();
-    // `key` covers `of`, `withExternal`, `search` and the graph version.
+    // `key` covers `of`, `sort`, `withExternal`, `search` and the graph version.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ready, retryTick]);
 
@@ -101,7 +113,7 @@ export function Hotspots(props: {
     if (!current || loadingMore) return;
     setLoadingMore(true);
     try {
-      const page = await fetchHotspots(of, current.items.length, withExternal, current.search);
+      const page = await fetchHotspots(of, sort, current.items.length, withExternal, current.search);
       setLoaded((prev) =>
         prev && prev.key === current.key ? { ...prev, items: [...prev.items, ...page.nodes], total: page.total } : prev,
       );
@@ -112,11 +124,13 @@ export function Hotspots(props: {
     }
   };
 
-  // Bars are scaled to the top of the whole ranking: rank 1, which an
-  // unfiltered first page holds.
-  const top = tops[listKey] ?? shown?.items[0]?.dependents ?? 0;
+  // Bars are scaled to the most dependents of any entry: rank 1 of the
+  // dependents ranking, which its unfiltered first page holds.
+  const top = tops[listKey] ?? Math.max(0, ...(shown?.items.map((t) => t.dependents ?? 0) ?? []));
   const remaining = current ? current.total - current.items.length : 0;
   const noun = of === "files" ? "source files" : "targets";
+  // Without git history every count is unknown, so sorting by changes is moot.
+  const changesUnknown = !!shown && shown.items.length > 0 && shown.items[0].changes === undefined;
 
   return (
     <div className="hot">
@@ -124,7 +138,7 @@ export function Hotspots(props: {
         <header className="hot-head">
           <div>
             <h1>{of === "files" ? "Source file hotspots" : "Target hotspots"}</h1>
-            <p>{DESCRIPTIONS[of]}</p>
+            <p>{describe(of, sort)}</p>
           </div>
         </header>
 
@@ -162,6 +176,27 @@ export function Hotspots(props: {
               <button type="button" aria-pressed={of === "files"} onClick={() => props.onSwitch("files")}>
                 Source files
               </button>
+            </div>
+            <div className="sort">
+              <span id="hot-sort-label">Sort by</span>
+              <div className="seg" role="group" aria-labelledby="hot-sort-label">
+                <button type="button" aria-pressed={sort === "dependents"} onClick={() => setSort("dependents")}>
+                  Dependents
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={sort === "changes"}
+                  onClick={() => setSort("changes")}
+                  disabled={changesUnknown && sort !== "changes"}
+                  title={
+                    changesUnknown
+                      ? "Change counts are unavailable: the workspace's git history couldn't be read"
+                      : `Most commits in the last ${CHANGES_WINDOW} first`
+                  }
+                >
+                  Changes
+                </button>
+              </div>
             </div>
             {of === "targets" && (
               <label className="check">

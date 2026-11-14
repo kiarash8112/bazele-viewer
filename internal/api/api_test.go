@@ -132,6 +132,7 @@ func TestBadRequests(t *testing.T) {
 		{"/api/roots?offset=-1", http.StatusBadRequest},
 		{"/api/roots?tests=maybe", http.StatusBadRequest},
 		{"/api/hotspots?of=packages", http.StatusBadRequest},
+		{"/api/hotspots?sort=size", http.StatusBadRequest},
 	}
 	for _, tc := range tests {
 		var body map[string]string
