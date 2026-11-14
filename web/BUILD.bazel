@@ -1,14 +1,48 @@
+load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@npm//web:typescript/package_json.bzl", typescript_bin = "bin")
+load("@npm//web:vite/package_json.bzl", vite_bin = "bin")
 load("@rules_go//go:def.bzl", "go_library")
 
-# dist/ is produced by `npm --prefix web run build`. allow_empty keeps
-# `bazel query //...` working in a fresh checkout that has not built it yet.
+npm_link_all_packages(name = "node_modules")
+
+SRCS = glob(["src/**"]) + [
+    "index.html",
+    "tsconfig.json",
+]
+
+# `vite build`, producing the dist/ directory that embed.go embeds.
+vite_bin.vite(
+    name = "build",
+    srcs = SRCS + [
+        "vite.config.ts",
+        ":node_modules/@vitejs/plugin-react",
+        ":node_modules/@xyflow/react",
+        ":node_modules/lucide-react",
+        ":node_modules/react",
+        ":node_modules/react-dom",
+        ":node_modules/vite",
+    ],
+    args = ["build"],
+    chdir = package_name(),
+    out_dirs = ["dist"],
+)
+
+# Vite strips types without checking them, so type errors fail this test instead.
+typescript_bin.tsc_test(
+    name = "typecheck",
+    args = [
+        "--noEmit",
+        "--project",
+        "tsconfig.json",
+    ],
+    chdir = package_name(),
+    data = SRCS + [":node_modules"],
+)
+
 go_library(
     name = "web",
     srcs = ["embed.go"],
-    embedsrcs = glob(
-        ["dist/**"],
-        allow_empty = True,
-    ),
+    embedsrcs = [":build"],
     importpath = "example.com/bazelviewer/web",
     visibility = ["//cmd/viewer:__pkg__"],
 )

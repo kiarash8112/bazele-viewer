@@ -1,6 +1,16 @@
 module(name = "bazel_viewer_example", version = "0.1.0")
 
 bazel_dep(name = "rules_go", version = "0.57.0")
+bazel_dep(name = "aspect_rules_js", version = "3.6.1")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.24.6")
+
+# The frontend's npm packages, from web/pnpm-lock.yaml. Bazel fetches Node and
+# the packages itself, so building the viewer needs no local npm install.
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+npm.npm_translate_lock(
+    name = "npm",
+    pnpm_lock = "//web:pnpm-lock.yaml",
+)
+use_repo(npm, "npm")

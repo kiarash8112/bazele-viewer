@@ -10,7 +10,7 @@ web
 
 Backend: Go, built with Bazel (`rules_go`), entry point `cmd/viewer`.
 
-Frontend: React + React Flow (`@xyflow/react`), built with Vite. Each layer is a star (one target and its direct deps), so it is laid out as a centred, wrapped grid computed in `web/src/layout.ts` rather than with a general graph-layout engine. The user chose this over a no-build option because the interactive canvas needs a real graph renderer. The Vite build output is embedded in the Go binary via `go:embed` (Bazel `embedsrcs`) and served by the same HTTP server as `/api/*`, so running it stays one `bazel run`. A Node toolchain is needed only to build the frontend.
+Frontend: React + React Flow (`@xyflow/react`), built with Vite. Each layer is a star (one target and its direct deps), so it is laid out as a centred, wrapped grid computed in `web/src/layout.ts` rather than with a general graph-layout engine. The user chose this over a no-build option because the interactive canvas needs a real graph renderer. The Vite build output is embedded in the Go binary via `go:embed` (Bazel `embedsrcs`) and served by the same HTTP server as `/api/*`, so running it stays one `bazel run`. Bazel builds the frontend too, through rules_js from `web/pnpm-lock.yaml`, fetching its own Node toolchain.
 
 ## Users
 

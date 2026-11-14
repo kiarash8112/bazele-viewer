@@ -1,0 +1,10 @@
+# Bazel (rules_js) builds the frontend from pnpm-lock.yaml in this directory.
+
+# Match the node_modules layout rules_js creates, so an undeclared dependency
+# fails locally too, not only under Bazel.
+hoist: false
+
+# esbuild's install script only checks its binary, which comes from the
+# platform package (@esbuild/linux-x64 and friends).
+allowBuilds:
+  esbuild: false

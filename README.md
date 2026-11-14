@@ -21,13 +21,10 @@ often they change.
 ## Run it
 
 You need [Bazelisk](https://github.com/bazelbuild/bazelisk) (installed as
-`bazel` or `bazelisk`), Node.js 18 or later, and git.
+`bazel` or `bazelisk`) and git. Bazel fetches Node.js and the frontend's npm
+packages itself and builds the frontend into the viewer binary.
 
 ```bash
-# Build the frontend once; the viewer binary embeds web/dist.
-npm --prefix web ci
-npm --prefix web run build
-
 # Point the viewer at any Bazel workspace.
 bazel run //cmd/viewer -- -workspace /path/to/your/workspace
 ```
@@ -116,13 +113,18 @@ curl 'http://127.0.0.1:8090/api/hotspots?of=files&sort=changes&q=proto&limit=5'
 ## Develop
 
 ```bash
-bazel test //...                         # Go tests
-npm --prefix web run dev                 # frontend on http://127.0.0.1:5173
+bazel test //...                         # Go tests and the frontend type check
+pnpm --dir web install                   # once, for the dev server
+pnpm --dir web dev                       # frontend on http://127.0.0.1:5173
 ```
 
 The Vite dev server reloads the page as you edit `web/src` and forwards `/api`
-to a viewer running on port 8090. Run `npm --prefix web run build` before
-`bazel run` to embed the current frontend in the binary.
+to a viewer running on port 8090. `bazel run //cmd/viewer` rebuilds the
+frontend from `web/src` itself, so the binary always has the current version.
+
+The frontend's dependencies are locked in `web/pnpm-lock.yaml`, which Bazel
+reads through rules_js. Add or upgrade packages with `pnpm --dir web add` so the
+lockfile stays in step with `web/package.json`.
 
 | Path | |
 | --- | --- |

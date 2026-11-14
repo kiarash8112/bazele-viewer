@@ -1,8 +1,7 @@
-// Package web holds the built frontend (web/dist), embedded into the viewer.
+// Package web holds the built frontend, embedded into the viewer.
 //
-// Build it before `bazel run //cmd/viewer`:
-//
-//	npm --prefix web ci && npm --prefix web run build
+// Bazel builds dist/ with Vite (the //web:build target) and passes it to the
+// Go compiler through embedsrcs.
 package web
 
 import (
