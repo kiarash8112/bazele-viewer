@@ -10,13 +10,19 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"example.com/bazelviewer/internal/api"
 	"example.com/bazelviewer/internal/bazelquery"
+	"example.com/bazelviewer/internal/gitchanges"
 	"example.com/bazelviewer/web"
 )
+
+// changesSince is how far back hotspots count changes, in git's date syntax.
+// The hotspots view labels the column with the same window.
+const changesSince = "6 months ago"
 
 func main() {
 	// `bazel run` changes the working directory; this variable has the original.
@@ -42,9 +48,28 @@ func main() {
 
 	opts := bazelquery.Options{Bazel: *bazel, Workspace: *workspace}
 	server := api.New(ctx, func(ctx context.Context) (api.Source, string, error) {
+		// Read the git history while bazel runs; it takes about a second.
+		type history struct {
+			commits map[string][]int32
+			err     error
+		}
+		historyCh := make(chan history, 1)
+		go func() {
+			commits, err := gitchanges.Load(ctx, *workspace, changesSince)
+			historyCh <- history{commits, err}
+		}()
+
 		g, warning, err := bazelquery.Load(ctx, opts)
+		h := <-historyCh
 		if err != nil {
 			return nil, "", err
+		}
+		if h.err != nil {
+			// The graph is still useful without change counts.
+			log.Printf("change counts unavailable: %v", h.err)
+			warning = strings.TrimSpace(warning + "\nchange counts unavailable: " + h.err.Error())
+		} else {
+			g.SetChanges(h.commits)
 		}
 		return g, warning, nil
 	})

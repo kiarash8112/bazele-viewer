@@ -765,10 +765,81 @@ button {
   color: var(--ink-2);
 }
 
+.hot-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+
 .hot-controls {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.search {
+  display: flex;
+  flex: 1 1 320px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--mute);
+  cursor: text;
+  transition: border-color 120ms;
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+}
+
+.search svg {
+  flex: none;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 12.5px/1.45 var(--mono);
+}
+
+.search input::placeholder {
+  color: var(--mute);
+  font-family: var(--sans);
+}
+
+.search input::-webkit-search-cancel-button {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+.search-key {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--mute);
+  font: 11px/18px var(--mono);
+}
+
+.hot-note code {
+  color: var(--ink);
+  font-family: var(--mono);
+}
+
+.hot-list.is-stale {
+  opacity: 0.55;
+  transition: opacity 150ms;
 }
 
 .check {
@@ -816,7 +887,7 @@ button {
 
 .hot-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 240px;
+  grid-template-columns: 44px minmax(0, 1fr) 110px 240px;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -856,6 +927,25 @@ button {
 
 .hot-target .t-label {
   -webkit-line-clamp: 1;
+}
+
+.hot-changes {
+  display: grid;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hot-changes strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hot-changes small {
+  color: var(--mute);
+  font-size: 11px;
 }
 
 .hot-score {
@@ -962,11 +1052,20 @@ button {
     grid-template-columns: 32px minmax(0, 1fr);
     gap: 6px 10px;
   }
+  .hot-changes,
   .hot-score {
     grid-column: 2;
   }
+  .hot-changes {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
   .hot-target .t-label {
     -webkit-line-clamp: 2;
+  }
+  .search-key {
+    display: none;
   }
 }
 

@@ -102,6 +102,14 @@ func TestHotspots(t *testing.T) {
 		t.Errorf("hotspots = %+v", targets)
 	}
 
+	var found pageResponse
+	if code := get(t, s, "/api/hotspots?q=two", &found); code != http.StatusOK {
+		t.Fatalf("hotspots search status = %d", code)
+	}
+	if found.Total != 1 || found.Nodes[0].Label != "//b:two" || found.Nodes[0].Rank != 2 {
+		t.Errorf("hotspots search = %+v, want //b:two at rank 2", found)
+	}
+
 	var files pageResponse
 	if code := get(t, s, "/api/hotspots?of=files", &files); code != http.StatusOK {
 		t.Fatalf("file hotspots status = %d", code)

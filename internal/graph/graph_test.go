@@ -211,3 +211,84 @@ func TestFileHotspotsCountTheirRulesDependents(t *testing.T) {
 		t.Errorf("Kind = %q, want %q", p.Nodes[0].Kind, "source file")
 	}
 }
+
+func TestHotspotSearchKeepsRanks(t *testing.T) {
+	g := hotspotSample()
+	type hit struct {
+		Label string
+		Rank  int
+	}
+	hits := func(p Page) []hit {
+		out := make([]hit, 0, len(p.Nodes))
+		for _, n := range p.Nodes {
+			out = append(out, hit{n.Label, n.Rank})
+		}
+		return out
+	}
+
+	p := g.Hotspots(Options{Query: "  APP:LIB "}) // Trimmed and case-insensitive.
+	if want := []hit{{"//app:lib", 2}, {"//app:lib_test", 4}}; !reflect.DeepEqual(hits(p), want) || p.Total != 2 {
+		t.Errorf("Hotspots search = %v (total %d), want %v (total 2)", hits(p), p.Total, want)
+	}
+
+	// With external targets shown, ranks count them too.
+	p = g.Hotspots(Options{Query: "util", IncludeExternal: true})
+	if want := []hit{{"//util:a", 2}}; !reflect.DeepEqual(hits(p), want) {
+		t.Errorf("Hotspots search with external = %v, want %v", hits(p), want)
+	}
+
+	p = g.FileHotspots(Options{Query: ".go", Offset: 1, Limit: 2})
+	if want := []hit{{"//app:lib.go", 2}, {"//app:main.go", 3}}; !reflect.DeepEqual(hits(p), want) || p.Total != 4 {
+		t.Errorf("FileHotspots search page = %v (total %d), want %v (total 4)", hits(p), p.Total, want)
+	}
+
+	if p := g.FileHotspots(Options{Query: "nothing-matches"}); p.Total != 0 || len(p.Nodes) != 0 {
+		t.Errorf("FileHotspots with no match = %+v, want empty", p)
+	}
+}
+
+func changeCounts(p Page) map[string]int {
+	out := make(map[string]int)
+	for _, n := range p.Nodes {
+		if n.Changes != nil {
+			out[n.Label] = *n.Changes
+		}
+	}
+	return out
+}
+
+func TestChangesAreUnknownUntilSet(t *testing.T) {
+	g := hotspotSample()
+	if got := changeCounts(g.Hotspots(Options{})); len(got) != 0 {
+		t.Errorf("target changes = %v, want none", got)
+	}
+	if got := changeCounts(g.FileHotspots(Options{})); len(got) != 0 {
+		t.Errorf("file changes = %v, want none", got)
+	}
+}
+
+func TestSetChangesCountsDistinctCommits(t *testing.T) {
+	b := NewBuilder()
+	b.AddRule("//p:lib", "go_library", []string{"//p:a.go", "//p:sub/b.go"})
+	b.AddRule("//p:bin", "go_binary", []string{"//p:lib", "//:root.go"})
+	b.AddRule("//p:quiet", "go_library", []string{"//p:c.go"})
+	for _, f := range []string{"//p:a.go", "//p:sub/b.go", "//:root.go", "//p:c.go"} {
+		b.AddSourceFile(f)
+	}
+	g := b.Build()
+	g.SetChanges(map[string][]int32{
+		"p/a.go":     {0, 1},
+		"p/sub/b.go": {1, 2}, // Commit 1 changed both of //p:lib's files.
+		"root.go":    {3},
+		"p/other.go": {4}, // Not a source file in the graph.
+	})
+
+	want := map[string]int{"//p:lib": 3, "//p:bin": 1, "//p:quiet": 0}
+	if got := changeCounts(g.Hotspots(Options{})); !reflect.DeepEqual(got, want) {
+		t.Errorf("target changes = %v, want %v", got, want)
+	}
+	want = map[string]int{"//p:a.go": 2, "//p:sub/b.go": 2, "//:root.go": 1, "//p:c.go": 0}
+	if got := changeCounts(g.FileHotspots(Options{})); !reflect.DeepEqual(got, want) {
+		t.Errorf("file changes = %v, want %v", got, want)
+	}
+}

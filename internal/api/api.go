@@ -193,7 +193,8 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleHotspots ranks targets (of=targets, the default) or source files
-// (of=files) by their transitive dependents.
+// (of=files) by their transitive dependents. q keeps the labels that contain
+// it, each with its rank in the full list.
 func (s *Server) handleHotspots(w http.ResponseWriter, r *http.Request) {
 	opts, err := parseOptions(r)
 	if err != nil {
@@ -252,6 +253,7 @@ func parseOptions(r *http.Request) (graph.Options, error) {
 	if opts.IncludeExternal, err = parseBool(q.Get("external")); err != nil {
 		return opts, fmt.Errorf("invalid external: %q", q.Get("external"))
 	}
+	opts.Query = q.Get("q")
 	return opts, nil
 }
 

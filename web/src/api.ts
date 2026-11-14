@@ -8,6 +8,10 @@ export interface Target {
   parentCount: number;
   /** Targets that depend on this one, directly or transitively (hotspots only). */
   dependents?: number;
+  /** Commits in the last 6 months that changed the file or the target's source files (hotspots only; absent without git history). */
+  changes?: number;
+  /** 1-based position in the full hotspot ranking, kept under a search (hotspots only). */
+  rank?: number;
 }
 
 export type HotspotKind = "targets" | "files";
@@ -76,14 +80,19 @@ export function fetchLayer(label: string | null, offset: number, signal?: AbortS
 
 export const HOTSPOT_PAGE_SIZE = 100;
 
-/** Fetches targets or source files ranked by their transitive dependents. */
+/**
+ * Fetches targets or source files ranked by their transitive dependents,
+ * keeping only labels that contain `search` (ignoring case) when it is set.
+ */
 export function fetchHotspots(
   of: HotspotKind,
   offset: number,
   external: boolean,
+  search: string,
   signal?: AbortSignal,
 ): Promise<Page> {
   const q = new URLSearchParams({ of, offset: String(offset), limit: String(HOTSPOT_PAGE_SIZE) });
   if (external) q.set("external", "true");
+  if (search) q.set("q", search);
   return getJSON<Page>(`/api/hotspots?${q}`, signal);
 }

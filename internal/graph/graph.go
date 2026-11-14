@@ -28,6 +28,13 @@ type Node struct {
 	// Dependents is the number of targets that depend on this one, directly or
 	// transitively. Only hotspot pages set it.
 	Dependents int `json:"dependents,omitempty"`
+	// Changes is the number of commits that changed this file, or this target's
+	// source files, in the recent history given to SetChanges. Only hotspot
+	// pages set it, and only when that history is known.
+	Changes *int `json:"changes,omitempty"`
+	// Rank is the 1-based position in the full hotspot ranking, which a search
+	// keeps. Only hotspot pages set it.
+	Rank int `json:"rank,omitempty"`
 }
 
 // Page is one window of a larger result.
@@ -38,8 +45,9 @@ type Page struct {
 
 // Options controls which targets a query returns and which window of them.
 type Options struct {
-	IncludeTests    bool // Roots only: also return test targets.
-	IncludeExternal bool // Show targets from @external repositories.
+	IncludeTests    bool   // Roots only: also return test targets.
+	IncludeExternal bool   // Show targets from @external repositories.
+	Query           string // Hotspots only: keep labels that contain it, ignoring case.
 	Offset          int
 	Limit           int
 }
@@ -56,6 +64,10 @@ type Graph struct {
 
 	files     []string  // file id -> source file label, sorted
 	fileUsers [][]int32 // file id -> rules that list the file as an input, sorted
+
+	// Commit counts from SetChanges; nil until it is called.
+	changes     []int32 // target id -> distinct commits that changed its source files
+	fileChanges []int32 // file id -> commits that changed the file
 
 	hotOnce sync.Once
 	hot     hotspots
@@ -115,33 +127,103 @@ func (g *Graph) Hotspots(opts Options) Page {
 	if !opts.IncludeExternal {
 		ids = g.withoutExternal(ids)
 	}
-	page := g.page(ids, opts)
-	start := min(max(opts.Offset, 0), len(ids))
-	for i := range page.Nodes {
-		page.Nodes[i].Dependents = int(hot.dependents[ids[start+i]])
+	ids, ranks := search(ids, func(id int32) string { return g.labels[id] }, opts.Query)
+	start, end := window(len(ids), opts)
+	nodes := make([]Node, 0, end-start)
+	for i := start; i < end; i++ {
+		n := g.node(ids[i], opts.IncludeExternal)
+		n.Dependents = int(hot.dependents[ids[i]])
+		n.Changes = count(g.changes, ids[i])
+		n.Rank = int(ranks[i])
+		nodes = append(nodes, n)
 	}
-	return page
+	return Page{Nodes: nodes, Total: len(ids)}
+}
+
+// search keeps the ids whose label contains query, ignoring case, in order,
+// with each one's 1-based rank in ids. An empty query keeps every id.
+func search(ids []int32, label func(id int32) string, query string) (kept, ranks []int32) {
+	query = strings.ToLower(strings.TrimSpace(query))
+	kept = make([]int32, 0, len(ids))
+	ranks = make([]int32, 0, len(ids))
+	for i, id := range ids {
+		if query == "" || strings.Contains(strings.ToLower(label(id)), query) {
+			kept = append(kept, id)
+			ranks = append(ranks, int32(i+1))
+		}
+	}
+	return kept, ranks
+}
+
+// window returns the [start, end) slice of n results that opts asks for.
+func window(n int, opts Options) (start, end int) {
+	start = min(max(opts.Offset, 0), n)
+	end = n
+	if opts.Limit > 0 {
+		end = min(start+opts.Limit, n)
+	}
+	return start, end
+}
+
+// count returns counts[id], or nil if the counts are unknown.
+func count(counts []int32, id int32) *int {
+	if counts == nil {
+		return nil
+	}
+	n := int(counts[id])
+	return &n
+}
+
+// SetChanges records the commits that changed each source file, keyed by path
+// relative to the workspace (see gitchanges.Load). A target's count is the
+// number of distinct commits that changed any of its own source files. Call it
+// before the graph is shared.
+func (g *Graph) SetChanges(commitsByPath map[string][]int32) {
+	g.fileChanges = make([]int32, len(g.files))
+	ruleCommits := make([][]int32, len(g.labels))
+	for file, label := range g.files {
+		commits := commitsByPath[labelPath(label)]
+		g.fileChanges[file] = int32(len(commits))
+		for _, rule := range g.fileUsers[file] {
+			ruleCommits[rule] = append(ruleCommits[rule], commits...)
+		}
+	}
+	g.changes = make([]int32, len(g.labels))
+	for rule, commits := range ruleCommits {
+		slices.Sort(commits)
+		g.changes[rule] = int32(len(slices.Compact(commits)))
+	}
+}
+
+// labelPath turns a main-repository file label into its path relative to the
+// workspace: "//pkg/dir:sub/file.go" is "pkg/dir/sub/file.go".
+func labelPath(label string) string {
+	pkg, name, _ := strings.Cut(strings.TrimPrefix(label, "//"), ":")
+	if pkg == "" {
+		return name
+	}
+	return pkg + "/" + name
 }
 
 // FileHotspots returns source files ranked by the transitive dependents of the
 // rules that use them.
 func (g *Graph) FileHotspots(opts Options) Page {
 	hot := g.hotspots()
-	start := min(max(opts.Offset, 0), len(hot.files))
-	end := len(hot.files)
-	if opts.Limit > 0 {
-		end = min(start+opts.Limit, end)
-	}
+	ids, ranks := search(hot.files, func(id int32) string { return g.files[id] }, opts.Query)
+	start, end := window(len(ids), opts)
 	nodes := make([]Node, 0, end-start)
-	for _, id := range hot.files[start:end] {
+	for i := start; i < end; i++ {
+		id := ids[i]
 		nodes = append(nodes, Node{
 			Label:       g.files[id],
 			Kind:        sourceFileKind,
 			ParentCount: len(g.fileUsers[id]),
 			Dependents:  int(hot.fileDependents[id]),
+			Changes:     count(g.fileChanges, id),
+			Rank:        int(ranks[i]),
 		})
 	}
-	return Page{Nodes: nodes, Total: len(hot.files)}
+	return Page{Nodes: nodes, Total: len(ids)}
 }
 
 func (g *Graph) hotspots() *hotspots {

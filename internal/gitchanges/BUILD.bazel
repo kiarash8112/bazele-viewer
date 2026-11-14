@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "gitchanges",
+    srcs = ["gitchanges.go"],
+    importpath = "example.com/bazelviewer/internal/gitchanges",
+    visibility = ["//:__subpackages__"],
+)
+
+go_test(
+    name = "gitchanges_test",
+    srcs = ["gitchanges_test.go"],
+    embed = [":gitchanges"],
+)
