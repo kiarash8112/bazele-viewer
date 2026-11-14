@@ -90,6 +90,27 @@ func TestRootsThenChildren(t *testing.T) {
 	}
 }
 
+func TestHotspots(t *testing.T) {
+	s := readyServer(t)
+
+	var targets pageResponse
+	if code := get(t, s, "/api/hotspots?limit=2", &targets); code != http.StatusOK {
+		t.Fatalf("hotspots status = %d", code)
+	}
+	if targets.Total != 4 || len(targets.Nodes) != 2 ||
+		targets.Nodes[0].Label != "//b:one" || targets.Nodes[0].Dependents != 2 {
+		t.Errorf("hotspots = %+v", targets)
+	}
+
+	var files pageResponse
+	if code := get(t, s, "/api/hotspots?of=files", &files); code != http.StatusOK {
+		t.Fatalf("file hotspots status = %d", code)
+	}
+	if files.Total != 0 {
+		t.Errorf("file hotspots = %+v, want none", files)
+	}
+}
+
 func TestBadRequests(t *testing.T) {
 	s := readyServer(t)
 	tests := []struct {
@@ -102,6 +123,7 @@ func TestBadRequests(t *testing.T) {
 		{"/api/roots?limit=5000", http.StatusBadRequest},
 		{"/api/roots?offset=-1", http.StatusBadRequest},
 		{"/api/roots?tests=maybe", http.StatusBadRequest},
+		{"/api/hotspots?of=packages", http.StatusBadRequest},
 	}
 	for _, tc := range tests {
 		var body map[string]string

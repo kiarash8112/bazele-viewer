@@ -45,7 +45,7 @@ function withBreaks(path: string) {
   ));
 }
 
-function Label({ label }: { label: string }) {
+export function Label({ label }: { label: string }) {
   const { pkg, name } = splitLabel(label);
   return (
     <span className="t-label" title={label}>
@@ -81,7 +81,7 @@ export const TargetNode = memo(function TargetNode({ data }: NodeProps<GraphNode
   const body = (
     <>
       <div className="t-meta">
-        <span className="t-kind">{target.kind}</span>
+        {target.kind && <span className="t-kind">{target.kind}</span>}
         {target.external && <ExternalBadge />}
       </div>
       <Label label={target.label} />
@@ -130,7 +130,7 @@ export const TargetNode = memo(function TargetNode({ data }: NodeProps<GraphNode
   );
 });
 
-function ExternalBadge() {
+export function ExternalBadge() {
   return (
     <span className="t-ext" title="Target from an external repository">
       <Globe size={11} strokeWidth={2} />

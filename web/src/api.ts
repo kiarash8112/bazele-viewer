@@ -6,7 +6,11 @@ export interface Target {
   external: boolean;
   depCount: number;
   parentCount: number;
+  /** Targets that depend on this one, directly or transitively (hotspots only). */
+  dependents?: number;
 }
+
+export type HotspotKind = "targets" | "files";
 
 export interface Page {
   /** The queried target itself (children requests only). */
@@ -68,4 +72,18 @@ export function fetchLayer(label: string | null, offset: number, signal?: AbortS
   if (label === null) return getJSON<Page>(`/api/roots?${q}`, signal);
   q.set("label", label);
   return getJSON<Page>(`/api/children?${q}`, signal);
+}
+
+export const HOTSPOT_PAGE_SIZE = 100;
+
+/** Fetches targets or source files ranked by their transitive dependents. */
+export function fetchHotspots(
+  of: HotspotKind,
+  offset: number,
+  external: boolean,
+  signal?: AbortSignal,
+): Promise<Page> {
+  const q = new URLSearchParams({ of, offset: String(offset), limit: String(HOTSPOT_PAGE_SIZE) });
+  if (external) q.set("external", "true");
+  return getJSON<Page>(`/api/hotspots?${q}`, signal);
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -23,9 +24,17 @@ func main() {
 	if defaultWorkspace == "" {
 		defaultWorkspace = "."
 	}
+	// Under `bazel run`, Bazelisk puts the viewer's own Bazel version first on
+	// PATH, so "bazel" would query the inspected workspace with the wrong
+	// version (and restart its server). Bazelisk picks the version from the
+	// inspected workspace's .bazelversion instead.
+	defaultBazel := "bazel"
+	if _, err := exec.LookPath("bazelisk"); err == nil {
+		defaultBazel = "bazelisk"
+	}
 	addr := flag.String("addr", "127.0.0.1:8090", "listen address")
 	workspace := flag.String("workspace", defaultWorkspace, "Bazel workspace to inspect")
-	bazel := flag.String("bazel", "bazel", "path to the bazel binary")
+	bazel := flag.String("bazel", defaultBazel, "path to the bazel binary")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

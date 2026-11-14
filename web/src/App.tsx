@@ -10,16 +10,41 @@ import {
   type Edge,
   type NodeChange,
 } from "@xyflow/react";
-import { AlertTriangle, ChevronRight, LoaderCircle, RefreshCw, Workflow } from "lucide-react";
-import { ApiError, fetchLayer, fetchStatus, PAGE_SIZE, refreshGraph, type Status, type Target } from "./api";
+import { AlertTriangle, ChevronRight, Flame, LoaderCircle, RefreshCw, Workflow } from "lucide-react";
+import {
+  ApiError,
+  fetchLayer,
+  fetchStatus,
+  PAGE_SIZE,
+  refreshGraph,
+  type HotspotKind,
+  type Status,
+  type Target,
+} from "./api";
+import { Hotspots } from "./hotspots";
 import { FOCUS_W, frameFor, layoutLayer, type Frame, type GraphNode, type Layer } from "./layout";
 import { ActionsContext, nodeTypes, type CanvasActions } from "./nodes";
 
 // ---- Path <-> URL hash, so the browser's back button walks up the graph. ----
 
+// The hotspots view lives at #hotspots and #hotspots/files. Labels start with
+// "//" or "@", so they never collide with it.
+const HOTSPOTS_HASH = "hotspots";
+
+function readView(): HotspotKind | null {
+  const h = window.location.hash.replace(/^#/, "");
+  if (h === HOTSPOTS_HASH) return "targets";
+  if (h === `${HOTSPOTS_HASH}/files`) return "files";
+  return null;
+}
+
+function writeView(of: HotspotKind) {
+  window.location.hash = of === "files" ? `${HOTSPOTS_HASH}/files` : HOTSPOTS_HASH;
+}
+
 function readPath(): string[] {
   const h = window.location.hash.replace(/^#/, "");
-  if (!h) return [];
+  if (!h || h.startsWith(HOTSPOTS_HASH)) return [];
   return h.split(",").map((s) => decodeURIComponent(s)).filter(Boolean);
 }
 
@@ -56,6 +81,7 @@ type LayerError = { key: string | null; message: string };
 
 export function App() {
   const [path, setPath] = useState<string[]>(readPath);
+  const [view, setView] = useState<HotspotKind | null>(readView); // null = the graph canvas
   const [status, setStatus] = useState<Status | null>(null);
   const [serverDown, setServerDown] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -77,9 +103,14 @@ export function App() {
   const version = status?.loadedAt ?? "";
   const ready = status?.state === "ready";
 
-  // Follow the hash.
+  // Follow the hash. The graph path is kept while hotspots are shown, so the
+  // Graph switch returns to where the user was.
   useEffect(() => {
-    const onHash = () => setPath(readPath());
+    const onHash = () => {
+      const v = readView();
+      setView(v);
+      if (!v) setPath(readPath());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -108,7 +139,7 @@ export function App() {
 
   // Load the layer for the current path whenever it or the graph changes.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || view) return;
     const ctl = new AbortController();
     const minLeave = leaving ? delay(200) : Promise.resolve();
     setLayerLoading(true);
@@ -137,7 +168,7 @@ export function App() {
     return () => ctl.abort();
     // `leaving` and `path` are read once per navigation, not dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, version, ready, retryTick]);
+  }, [key, version, ready, retryTick, view]);
 
   useEffect(() => {
     if (!notice) return;
@@ -209,6 +240,10 @@ export function App() {
   // Frame a layer: the focus and its first rows, centred, never zoomed past
   // 100%. The layout is known up front, so no measuring is needed.
   const framedFor = useRef<string | null>(null);
+  // The canvas unmounts while hotspots are shown; frame it afresh on return.
+  useEffect(() => {
+    if (view) framedFor.current = null;
+  }, [view]);
   const frameLayer = useCallback(
     (f: Frame, animate: boolean) => {
       const el = canvasRef.current;
@@ -247,6 +282,8 @@ export function App() {
   );
 
   const goTo = useCallback((depth: number) => writePath(path.slice(0, depth)), [path]);
+  const showGraph = useCallback(() => writePath(path), [path]);
+  const openFromHotspots = useCallback((label: string) => writePath([label]), []);
 
   const loadMore = useCallback(async () => {
     if (!current || loadingMore) return;
@@ -271,11 +308,11 @@ export function App() {
   // Escape steps back up one layer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && path.length > 0) writePath(path.slice(0, -1));
+      if (e.key === "Escape" && !view && path.length > 0) writePath(path.slice(0, -1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [path]);
+  }, [path, view]);
 
   const reload = useCallback(async () => {
     await refreshGraph();
@@ -284,7 +321,30 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar path={path} narrow={narrow} onCrumb={goTo} status={status} serverDown={serverDown} onReload={reload} />
+      <TopBar
+        path={path}
+        view={view}
+        narrow={narrow}
+        onCrumb={goTo}
+        onGraph={showGraph}
+        onHotspots={() => writeView("targets")}
+        status={status}
+        serverDown={serverDown}
+        onReload={reload}
+      />
+      {view ? (
+        <main className="hot-main">
+          <Hotspots of={view} ready={ready} version={version} onOpen={openFromHotspots} onSwitch={writeView} />
+          <Overlay
+            status={status}
+            serverDown={serverDown}
+            layer={null}
+            layerError={null}
+            onRetryGraph={reload}
+            onRetryLayer={() => {}}
+          />
+        </main>
+      ) : (
       <main className="canvas" ref={canvasRef} aria-busy={layerLoading}>
         <ActionsContext.Provider value={actions}>
           <ReactFlow
@@ -337,6 +397,7 @@ export function App() {
           </div>
         )}
       </main>
+      )}
     </div>
   );
 }
@@ -345,8 +406,11 @@ export function App() {
 
 function TopBar(props: {
   path: string[];
+  view: HotspotKind | null;
   narrow: boolean;
   onCrumb(depth: number): void;
+  onGraph(): void;
+  onHotspots(): void;
   status: Status | null;
   serverDown: boolean;
   onReload(): void;
@@ -374,6 +438,19 @@ function TopBar(props: {
         <Workflow size={18} strokeWidth={2} aria-hidden="true" />
         <span>Bazel Graph</span>
       </div>
+      <div className="seg viewswitch" role="group" aria-label="View">
+        <button type="button" aria-pressed={!props.view} onClick={props.onGraph} aria-label="Graph">
+          <Workflow size={14} aria-hidden="true" />
+          <span>Graph</span>
+        </button>
+        <button type="button" aria-pressed={!!props.view} onClick={props.onHotspots} aria-label="Hotspots">
+          <Flame size={14} aria-hidden="true" />
+          <span>Hotspots</span>
+        </button>
+      </div>
+      {props.view ? (
+        <div className="crumbs" />
+      ) : (
       <nav className="crumbs" aria-label="Breadcrumb" ref={crumbsRef}>
         <ol>
           <li>
@@ -413,6 +490,7 @@ function TopBar(props: {
           ))}
         </ol>
       </nav>
+      )}
       <StatusPill status={props.status} serverDown={props.serverDown} onReload={props.onReload} />
     </header>
   );
@@ -524,7 +602,7 @@ function Overlay(props: {
     return (
       <Panel title="Loading the build graph" spinner>
         <p>
-          Running <code>bazel query 'deps(//...)'</code> in your workspace. Large workspaces can take a minute.
+          Running <code>bazel query '//...:*'</code> in your workspace. Large workspaces can take a minute.
         </p>
       </Panel>
     );

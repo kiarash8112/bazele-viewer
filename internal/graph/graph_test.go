@@ -85,6 +85,25 @@ func TestChildrenUnknownLabel(t *testing.T) {
 	}
 }
 
+func TestUnreportedExternalInputsBecomeLeaves(t *testing.T) {
+	b := NewBuilder()
+	b.AddRule("//app:lib", "go_library", []string{
+		"@dep//:a",      // external, not in the output: becomes a leaf
+		"//missing:lib", // main repo, not in the output: dropped
+	})
+	b.AddRule("//app:bin", "go_binary", []string{"//app:lib", "@dep//:a"})
+	g := b.Build()
+
+	p, _ := g.Children("//app:lib", Options{IncludeExternal: true})
+	want := []Node{{Label: "@dep//:a", Kind: "", External: true, DepCount: 0, ParentCount: 2}}
+	if !reflect.DeepEqual(p.Nodes, want) {
+		t.Errorf("Children = %+v, want %+v", p.Nodes, want)
+	}
+	if got := labels(g.Roots(Options{})); !reflect.DeepEqual(got, []string{"//app:bin"}) {
+		t.Errorf("Roots = %v, want [//app:bin]", got)
+	}
+}
+
 func TestNodeCounts(t *testing.T) {
 	g := sample()
 	p := g.Roots(Options{IncludeTests: true})
@@ -122,5 +141,73 @@ func TestPaging(t *testing.T) {
 		if p.Total != 3 {
 			t.Errorf("Total = %d, want 3", p.Total)
 		}
+	}
+}
+
+// hotspotSample: //util:a is used by //app:lib, which //app:bin and
+// //app:lib_test use; //util:a depends on @dep//:ext.
+func hotspotSample() *Graph {
+	b := NewBuilder()
+	b.AddRule("//app:bin", "go_binary", []string{"//app:lib", "//app:main.go"})
+	b.AddRule("//app:lib", "go_library", []string{"//util:a", "//app:lib.go"})
+	b.AddRule("//app:lib_test", "go_test", []string{"//app:lib", "//app:lib.go", "//app:lib.go"})
+	b.AddRule("//util:a", "go_library", []string{"//util:a.go", "@dep//:ext"})
+	for _, f := range []string{"//app:main.go", "//app:lib.go", "//util:a.go", "//unused:x.go"} {
+		b.AddSourceFile(f)
+	}
+	return b.Build()
+}
+
+type ranked struct {
+	Label      string
+	Dependents int
+	Direct     int
+}
+
+func ranking(p Page) []ranked {
+	out := make([]ranked, 0, len(p.Nodes))
+	for _, n := range p.Nodes {
+		out = append(out, ranked{n.Label, n.Dependents, n.ParentCount})
+	}
+	return out
+}
+
+func TestHotspotsRankTargetsByTransitiveDependents(t *testing.T) {
+	g := hotspotSample()
+	got := ranking(g.Hotspots(Options{}))
+	want := []ranked{
+		{"//util:a", 3, 1},
+		{"//app:lib", 2, 2},
+		{"//app:bin", 0, 0}, // Ties keep label order.
+		{"//app:lib_test", 0, 0},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Hotspots = %v, want %v", got, want)
+	}
+
+	got = ranking(g.Hotspots(Options{IncludeExternal: true, Limit: 1}))
+	if want := []ranked{{"@dep//:ext", 4, 1}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Hotspots with external = %v, want %v", got, want)
+	}
+
+	p := g.Hotspots(Options{Offset: 1, Limit: 2})
+	if got, want := ranking(p), want[1:3]; !reflect.DeepEqual(got, want) || p.Total != 4 {
+		t.Errorf("Hotspots page = %v (total %d), want %v (total 4)", got, p.Total, want)
+	}
+}
+
+func TestFileHotspotsCountTheirRulesDependents(t *testing.T) {
+	p := hotspotSample().FileHotspots(Options{})
+	want := []ranked{
+		{"//util:a.go", 4, 1},  // //util:a and its 3 dependents.
+		{"//app:lib.go", 3, 2}, // Listed twice by //app:lib_test, counted once.
+		{"//app:main.go", 1, 1},
+		{"//unused:x.go", 0, 0},
+	}
+	if got := ranking(p); !reflect.DeepEqual(got, want) {
+		t.Errorf("FileHotspots = %v, want %v", got, want)
+	}
+	if p.Nodes[0].Kind != "source file" {
+		t.Errorf("Kind = %q, want %q", p.Nodes[0].Kind, "source file")
 	}
 }

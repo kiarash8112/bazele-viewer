@@ -1,6 +1,7 @@
 package bazelquery
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,12 +27,24 @@ func TestParse(t *testing.T) {
 	if !ok || len(p.Nodes) != 1 || p.Nodes[0].Label != "//a:gen" || p.Nodes[0].Kind != "genrule" {
 		t.Errorf("Children = %+v, %v; want //a:gen genrule", p, ok)
 	}
+	files := g.FileHotspots(graph.Options{})
+	if len(files.Nodes) != 1 || files.Nodes[0].Label != "//a:a.go" || files.Nodes[0].ParentCount != 1 {
+		t.Errorf("FileHotspots = %+v; want //a:a.go used by //a:bin", files)
+	}
 }
 
 func TestParseRejectsTruncatedOutput(t *testing.T) {
 	err := Parse(strings.NewReader(`{"type":"RULE","rule":{"name"`), graph.NewBuilder())
 	if err == nil {
 		t.Error("expected an error for truncated output")
+	}
+}
+
+func TestQueryEnvDropsBazeliskSkipWrapper(t *testing.T) {
+	got := queryEnv([]string{"PATH=/bin", "BAZELISK_SKIP_WRAPPER=true", "HOME=/h"})
+	want := []string{"PATH=/bin", "HOME=/h"}
+	if !slices.Equal(got, want) {
+		t.Errorf("queryEnv = %q, want %q", got, want)
 	}
 }
 

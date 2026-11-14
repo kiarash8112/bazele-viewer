@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"example.com/bazelviewer/internal/graph"
@@ -30,17 +32,20 @@ func Load(ctx context.Context, opts Options) (g *graph.Graph, warning string, er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// //...:* is every target in the main repository, each rule with its direct
+	// deps. Unlike deps(//...), it does not load external repositories, which
+	// would fetch every toolchain they register (for example a Python
+	// interpreter per platform), so edges to @external targets are dropped.
 	cmd := exec.CommandContext(ctx, opts.Bazel,
-		"query", "deps(//...)",
-		"--noimplicit_deps",
+		"query", "//...:*",
 		"--keep_going",
-		"--order_output=no",
 		"--output=streamed_jsonproto",
 		"--noshow_progress",
 		"--color=no",
 		"--curses=no",
 	)
 	cmd.Dir = opts.Workspace
+	cmd.Env = queryEnv(os.Environ())
 	stderr := &tailWriter{limit: stderrTailSize}
 	cmd.Stderr = stderr
 	stdout, err := cmd.StdoutPipe()
@@ -71,6 +76,15 @@ func Load(ctx context.Context, opts Options) (g *graph.Graph, warning string, er
 	return b.Build(), warning, nil
 }
 
+// queryEnv returns environ without BAZELISK_SKIP_WRAPPER. Bazelisk sets it for
+// the viewer under `bazel run`; dropping it lets the inspected workspace's own
+// tools/bazel wrapper run, as it does from a terminal.
+func queryEnv(environ []string) []string {
+	return slices.DeleteFunc(slices.Clone(environ), func(kv string) bool {
+		return strings.HasPrefix(kv, "BAZELISK_SKIP_WRAPPER=")
+	})
+}
+
 // record holds the only fields kept from each query result. The decoder skips
 // everything else, including the large attribute lists.
 type record struct {
@@ -83,6 +97,9 @@ type record struct {
 		Name           string `json:"name"`
 		GeneratingRule string `json:"generatingRule"`
 	} `json:"generatedFile"`
+	SourceFile *struct {
+		Name string `json:"name"`
+	} `json:"sourceFile"`
 }
 
 // Parse reads --output=streamed_jsonproto results from r into b, one target at
@@ -102,6 +119,8 @@ func Parse(r io.Reader, b *graph.Builder) error {
 			b.AddRule(rec.Rule.Name, rec.Rule.RuleClass, rec.Rule.RuleInput)
 		case rec.GeneratedFile != nil:
 			b.AddGeneratedFile(rec.GeneratedFile.Name, rec.GeneratedFile.GeneratingRule)
+		case rec.SourceFile != nil:
+			b.AddSourceFile(rec.SourceFile.Name)
 		}
 	}
 }

@@ -28,6 +28,8 @@ type Source interface {
 	Roots(opts graph.Options) graph.Page
 	Children(label string, opts graph.Options) (graph.Page, bool)
 	Target(label string, opts graph.Options) (graph.Node, bool)
+	Hotspots(opts graph.Options) graph.Page
+	FileHotspots(opts graph.Options) graph.Page
 }
 
 // Loader produces a fresh Source. A non-empty warning marks it as incomplete.
@@ -101,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/refresh", s.handleRefresh)
 	mux.HandleFunc("GET /api/roots", s.handleRoots)
 	mux.HandleFunc("GET /api/children", s.handleChildren)
+	mux.HandleFunc("GET /api/hotspots", s.handleHotspots)
 	return mux
 }
 
@@ -187,6 +190,30 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 		Offset: opts.Offset,
 		Limit:  opts.Limit,
 	})
+}
+
+// handleHotspots ranks targets (of=targets, the default) or source files
+// (of=files) by their transitive dependents.
+func (s *Server) handleHotspots(w http.ResponseWriter, r *http.Request) {
+	opts, err := parseOptions(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	of := r.URL.Query().Get("of")
+	if of != "" && of != "targets" && of != "files" {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid of: %q (must be targets or files)", of))
+		return
+	}
+	src, ok := s.source(w)
+	if !ok {
+		return
+	}
+	if of == "files" {
+		writePage(w, src.FileHotspots(opts), opts)
+		return
+	}
+	writePage(w, src.Hotspots(opts), opts)
 }
 
 // source returns the current graph, or writes a 503 if none has loaded yet.

@@ -687,6 +687,256 @@ button {
   }
 }
 
+/* ---- Segmented control (view switch, hotspot kind) ---- */
+
+.seg {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+
+.seg button:hover {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+
+.seg button[aria-pressed="true"] {
+  background: var(--accent-bg);
+  color: var(--accent-ink);
+  cursor: default;
+}
+
+/* ---- Hotspots ---- */
+
+.hot-main {
+  position: relative;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.hot {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.hot-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.hot-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+}
+
+.hot-head h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hot-head p {
+  max-width: 600px;
+  margin: 4px 0 0;
+  color: var(--ink-2);
+}
+
+.hot-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.hot-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: var(--mute);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hot-panel {
+  margin-bottom: 16px;
+}
+
+.hot-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.hot-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.hot-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 240px;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 10px 16px 10px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.hot-open {
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.hot-open:hover {
+  background: var(--panel-hover);
+}
+
+.hot-open:focus-visible {
+  outline-offset: -2px;
+}
+
+.hot-rank {
+  color: var(--mute);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.hot-target {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hot-target .t-label {
+  -webkit-line-clamp: 1;
+}
+
+.hot-score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hot-num {
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.hot-num strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hot-direct {
+  color: var(--mute);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.hot-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.hot-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink-2);
+  opacity: 0.6;
+}
+
+.hot-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms;
+}
+
+.hot-more span {
+  display: grid;
+  text-align: left;
+}
+
+.hot-more small {
+  color: var(--mute);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hot-more:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hot-more:disabled {
+  cursor: default;
+}
+
 @media (max-width: 720px) {
   .topbar {
     gap: 10px;
@@ -704,6 +954,19 @@ button {
   }
   .react-flow__minimap {
     display: none;
+  }
+  .viewswitch span {
+    display: none;
+  }
+  .hot-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 6px 10px;
+  }
+  .hot-score {
+    grid-column: 2;
+  }
+  .hot-target .t-label {
+    -webkit-line-clamp: 2;
   }
 }
 
