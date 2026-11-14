@@ -20,6 +20,18 @@ const exitPartial = 3
 
 const stderrTailSize = 4096
 
+// queryExpr is every target in the main repository, each rule with its direct
+// deps. Unlike deps(//...), //...:* does not load external repositories, which
+// would fetch every toolchain they register (for example a Python interpreter
+// per platform), so @external targets appear only as labels.
+//
+// It leaves out the targets rules_js's npm_link_all_packages creates: a
+// node_modules/<package> link per npm dependency and four hidden
+// .aspect_rules_js/... targets per package in the lockfile, hundreds in all.
+// They are third-party packages, like @external targets, and edges to them
+// are dropped with them.
+const queryExpr = `//...:* except attr(generator_function, "^npm_link_all_packages$", //...:*)`
+
 // Options configures Load.
 type Options struct {
 	Bazel     string // Path to the bazel binary.
@@ -32,12 +44,8 @@ func Load(ctx context.Context, opts Options) (g *graph.Graph, warning string, er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// //...:* is every target in the main repository, each rule with its direct
-	// deps. Unlike deps(//...), it does not load external repositories, which
-	// would fetch every toolchain they register (for example a Python
-	// interpreter per platform), so edges to @external targets are dropped.
 	cmd := exec.CommandContext(ctx, opts.Bazel,
-		"query", "//...:*",
+		"query", queryExpr,
 		"--keep_going",
 		"--output=streamed_jsonproto",
 		"--noshow_progress",
