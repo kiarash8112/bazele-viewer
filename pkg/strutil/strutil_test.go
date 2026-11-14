@@ -10,3 +10,12 @@ func TestTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestSlug(t *testing.T) {
+	cases := map[string]string{"": "", "Blue Mug": "blue-mug", "  Tea   Pot ": "tea-pot"}
+	for in, want := range cases {
+		if got := Slug(in); got != want {
+			t.Errorf("Slug(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

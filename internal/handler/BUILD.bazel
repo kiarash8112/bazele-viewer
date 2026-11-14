@@ -4,7 +4,7 @@ go_library(
     name = "handler",
     srcs = ["handler.go"],
     importpath = "example.com/bazelviewer/internal/handler",
-    visibility = ["//cmd:__subpackages__"],
+    visibility = ["//:__subpackages__"],
     deps = [
         "//pkg/greeting",
         "//pkg/store",

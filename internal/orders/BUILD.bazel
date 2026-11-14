@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "orders",
+    srcs = ["orders.go"],
+    importpath = "example.com/bazelviewer/internal/orders",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/catalog",
+        "//internal/db",
+        "//internal/inventory",
+        "//internal/metrics",
+        "//internal/payments",
+        "//pkg/logging",
+        "//pkg/money",
+        "//pkg/validate",
+    ],
+)
+
+go_test(
+    name = "orders_test",
+    srcs = ["orders_test.go"],
+    embed = [":orders"],
+    deps = [
+        "//internal/catalog",
+        "//internal/db",
+        "//internal/inventory",
+        "//internal/metrics",
+        "//internal/payments",
+    ],
+)

@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "catalog",
+    srcs = ["catalog.go"],
+    importpath = "example.com/bazelviewer/internal/catalog",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/cache",
+        "//internal/db",
+        "//pkg/clock",
+        "//pkg/money",
+        "//pkg/strutil",
+    ],
+)
