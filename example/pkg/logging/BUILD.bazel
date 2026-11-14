@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "logging",
+    srcs = ["logging.go"],
+    importpath = "example.com/bazelviewer/example/pkg/logging",
+    visibility = ["//visibility:public"],
+    deps = ["//example/pkg/clock"],
+)

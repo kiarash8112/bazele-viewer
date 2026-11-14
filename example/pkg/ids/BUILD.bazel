@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ids",
+    srcs = ["ids.go"],
+    importpath = "example.com/bazelviewer/example/pkg/ids",
+    visibility = ["//visibility:public"],
+    deps = ["//example/pkg/strutil"],
+)

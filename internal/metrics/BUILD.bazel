@@ -1,9 +1,0 @@
-load("@rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "metrics",
-    srcs = ["metrics.go"],
-    importpath = "example.com/bazelviewer/internal/metrics",
-    visibility = ["//:__subpackages__"],
-    deps = ["//pkg/store"],
-)

@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "shopctl_lib",
+    srcs = ["main.go"],
+    importpath = "example.com/bazelviewer/example/cmd/shopctl",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//example/internal/catalog",
+        "//example/internal/db",
+        "//example/internal/inventory",
+        "//example/internal/metrics",
+        "//example/pkg/config",
+        "//example/pkg/money",
+    ],
+)
+
+go_binary(
+    name = "shopctl",
+    embed = [":shopctl_lib"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "validate",
+    srcs = ["validate.go"],
+    importpath = "example.com/bazelviewer/example/pkg/validate",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "validate_test",
+    srcs = ["validate_test.go"],
+    embed = [":validate"],
+)

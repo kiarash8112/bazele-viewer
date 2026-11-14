@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "auth",
+    srcs = ["auth.go"],
+    importpath = "example.com/bazelviewer/example/internal/auth",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//example/internal/db",
+        "//example/pkg/ids",
+        "//example/pkg/validate",
+    ],
+)

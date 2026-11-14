@@ -36,13 +36,13 @@ one is ready.
 
 Without `-workspace`, the viewer inspects the directory you ran `bazel run`
 from, so `bazel run //cmd/viewer` alone shows this repository, which includes an
-example to explore: a small online shop. It has four binaries (`cmd/server`,
-`cmd/worker`, `cmd/shopctl`, `cmd/migrate`), services in `internal/` (`orders`,
-`catalog`, `payments`, `inventory`, `db` and more) and shared libraries in
-`pkg/`. The shop really runs:
+example to explore under `example/`: a small online shop. It has four binaries
+(`example/cmd/server`, `worker`, `shopctl` and `migrate`), services in
+`example/internal/` (`orders`, `catalog`, `payments`, `inventory`, `db` and
+more) and shared libraries in `example/pkg/`. The shop really runs:
 
 ```bash
-bazel run //cmd/server                   # shop API on :8080
+bazel run //example/cmd/server           # shop API on :8080
 curl 'localhost:8080/products?q=mug'
 ```
 
@@ -134,7 +134,7 @@ lockfile stays in step with `web/package.json`.
 | `internal/graph` | The in-memory graph, roots, deps and hotspot rankings |
 | `internal/api` | HTTP handlers and background reloads |
 | `web` | React frontend (React Flow canvas, Vite build) |
-| `cmd/{server,worker,shopctl,migrate}`, the other `internal/` packages, `pkg` | The example shop to try the viewer on |
+| `example` | The example shop to try the viewer on; nothing outside it imports it |
 
 [`PRODUCT.md`](PRODUCT.md) describes what the viewer is for and its scope;
 [`DESIGN.md`](DESIGN.md) is its visual design system.

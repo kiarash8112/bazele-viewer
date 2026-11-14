@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "config",
+    srcs = ["config.go"],
+    importpath = "example.com/bazelviewer/example/pkg/config",
+    visibility = ["//visibility:public"],
+    deps = ["//example/pkg/validate"],
+)

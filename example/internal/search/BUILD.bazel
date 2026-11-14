@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "search",
+    srcs = ["search.go"],
+    importpath = "example.com/bazelviewer/example/internal/search",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//example/internal/catalog",
+        "//example/pkg/strutil",
+    ],
+)

@@ -52,7 +52,7 @@ Unlike raw `bazel query` output or full-graph renderers that draw the whole hair
 
 ## Evidence on Hand
 
-- This repo includes a small example Go workspace (`cmd/server`, `internal/handler`, `pkg/greeting`, `pkg/strutil`, `pkg/store`) that works as real demo data for the viewer.
+- This repo includes an example Go codebase, a small online shop under `example/`, that works as real demo data for the viewer.
 - No users, testimonials, benchmarks or performance figures exist. Do not invent any.
 
 ## Product Principles

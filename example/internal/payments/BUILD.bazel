@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "payments",
+    srcs = ["payments.go"],
+    importpath = "example.com/bazelviewer/example/internal/payments",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//example/internal/metrics",
+        "//example/pkg/ids",
+        "//example/pkg/logging",
+        "//example/pkg/money",
+        "//example/pkg/retry",
+    ],
+)
