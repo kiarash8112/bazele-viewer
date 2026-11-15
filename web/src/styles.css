@@ -1153,3 +1153,49 @@ button {
     animation: none;
   }
 }
+
+/* ---- Expand mode ---- */
+
+.x-seed {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.x-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mute);
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms, border-color 140ms;
+}
+
+.x-up:hover,
+.x-up:focus-visible {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.x-up[aria-pressed="true"] {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.x-down.is-open .t-stub-line {
+  border-color: var(--accent);
+}
+
+.x-down.is-open .t-stub-count {
+  border-color: var(--accent);
+  border-style: solid;
+}

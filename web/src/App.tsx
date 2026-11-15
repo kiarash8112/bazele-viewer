@@ -10,7 +10,7 @@ import {
   type Edge,
   type NodeChange,
 } from "@xyflow/react";
-import { AlertTriangle, ArrowUp, ChevronRight, Flame, LoaderCircle, RefreshCw, Workflow } from "lucide-react";
+import { AlertTriangle, ArrowUp, ChevronRight, Flame, ListTree, LoaderCircle, RefreshCw, StepForward, Workflow } from "lucide-react";
 import {
   ApiError,
   fetchLayer,
@@ -22,6 +22,7 @@ import {
   type Status,
   type Target,
 } from "./api";
+import { ExploreCanvas } from "./explore";
 import { Hotspots } from "./hotspots";
 import { FOCUS_W, frameFor, layoutLayer, type Frame, type GraphNode, type Layer } from "./layout";
 import { ActionsContext, nodeTypes, type CanvasActions } from "./nodes";
@@ -76,6 +77,26 @@ function writePath(path: Step[]) {
   if (!h) history.replaceState(null, "", window.location.pathname + window.location.search);
 }
 
+// The graph canvas either steps from layer to layer, or expands in place.
+type Mode = "step" | "expand";
+const MODE_KEY = "bazel-graph.mode";
+
+function readMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "expand" ? "expand" : "step";
+  } catch {
+    return "step";
+  }
+}
+
+function saveMode(mode: Mode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // The choice just won't outlive the page.
+  }
+}
+
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function useMediaQuery(query: string): boolean {
@@ -103,6 +124,11 @@ type LayerError = { key: string | null; message: string };
 export function App() {
   const [path, setPath] = useState<Step[]>(readPath);
   const [view, setView] = useState<HotspotKind | null>(readView); // null = the graph canvas
+  const [mode, setModeState] = useState<Mode>(readMode);
+  const setMode = useCallback((m: Mode) => {
+    setModeState(m);
+    saveMode(m);
+  }, []);
   const [status, setStatus] = useState<Status | null>(null);
   const [serverDown, setServerDown] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -161,7 +187,7 @@ export function App() {
 
   // Load the layer for the current path whenever it or the graph changes.
   useEffect(() => {
-    if (!ready || view) return;
+    if (!ready || view || mode === "expand") return;
     const ctl = new AbortController();
     const minLeave = leaving ? delay(200) : Promise.resolve();
     setLayerLoading(true);
@@ -190,7 +216,7 @@ export function App() {
     return () => ctl.abort();
     // `leaving`, `path` and `step` (which `key` covers) are read once per navigation, not dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, version, ready, retryTick, view]);
+  }, [key, version, ready, retryTick, view, mode]);
 
   useEffect(() => {
     if (!notice) return;
@@ -264,13 +290,15 @@ export function App() {
     [],
   );
 
+  const showError = useCallback((msg: string) => setNotice(msg), []);
+
   // Frame a layer: the focus and its first rows, centred, never zoomed past
   // 100%. The layout is known up front, so no measuring is needed.
   const framedFor = useRef<string | null>(null);
   // The canvas unmounts while hotspots are shown; frame it afresh on return.
   useEffect(() => {
-    if (view) framedFor.current = null;
-  }, [view]);
+    if (view || mode === "expand") framedFor.current = null;
+  }, [view, mode]);
   const frameLayer = useCallback(
     (f: Frame, animate: boolean) => {
       const el = canvasRef.current;
@@ -358,6 +386,8 @@ export function App() {
       <TopBar
         path={path}
         view={view}
+        mode={mode}
+        onMode={setMode}
         narrow={narrow}
         onCrumb={goTo}
         onGraph={showGraph}
@@ -378,6 +408,31 @@ export function App() {
             onRetryLayer={() => {}}
           />
         </main>
+      ) : mode === "expand" ? (
+        <>
+          {ready && (
+            <ExploreCanvas
+              seed={step}
+              version={version}
+              narrow={narrow}
+              reduceMotion={reduceMotion}
+              onError={showError}
+            />
+          )}
+          <Overlay
+            status={status}
+            serverDown={serverDown}
+            layer={null}
+            layerError={null}
+            onRetryGraph={reload}
+            onRetryLayer={() => {}}
+          />
+          {notice && (
+            <div className="toast" role="status">
+              {notice}
+            </div>
+          )}
+        </>
       ) : (
       <main className="canvas" ref={canvasRef} aria-busy={layerLoading}>
         <ActionsContext.Provider value={actions}>
@@ -441,6 +496,8 @@ export function App() {
 function TopBar(props: {
   path: Step[];
   view: HotspotKind | null;
+  mode: Mode;
+  onMode(mode: Mode): void;
   narrow: boolean;
   onCrumb(depth: number): void;
   onGraph(): void;
@@ -482,6 +539,30 @@ function TopBar(props: {
           <span>Hotspots</span>
         </button>
       </div>
+      {!props.view && (
+        <div className="seg viewswitch" role="group" aria-label="Graph mode">
+          <button
+            type="button"
+            aria-pressed={props.mode === "step"}
+            onClick={() => props.onMode("step")}
+            title="Step: show one layer at a time"
+            aria-label="Step"
+          >
+            <StepForward size={14} aria-hidden="true" />
+            <span>Step</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={props.mode === "expand"}
+            onClick={() => props.onMode("expand")}
+            title="Expand: open targets in place and keep what's on screen"
+            aria-label="Expand"
+          >
+            <ListTree size={14} aria-hidden="true" />
+            <span>Expand</span>
+          </button>
+        </div>
+      )}
       {props.view ? (
         <div className="crumbs" />
       ) : (
