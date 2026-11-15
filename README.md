@@ -14,7 +14,7 @@ often they change.
   dependents or by changes, search by label, and click a target to open it in
   the graph.
 
-![The graph view at the workspace roots: five go_binary entry points, each with a stub to drill into its deps](docs/screenshots/graph-roots.png)
+![The graph view: starting at the workspace roots, clicking a go_binary opens its deps one layer at a time, with a breadcrumb back](docs/screenshots/graph.gif)
 
 ![The hotspots view: targets ranked by dependents, each with its changes in the last 6 months, a search bar and sort controls](docs/screenshots/hotspots.png)
 
