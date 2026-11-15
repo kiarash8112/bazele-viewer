@@ -99,6 +99,42 @@ func TestChildrenUnknownLabel(t *testing.T) {
 	}
 }
 
+func TestParents(t *testing.T) {
+	g := sample()
+	p, ok := g.Parents("//util:a", Options{})
+	if !ok {
+		t.Fatal("//util:a not found")
+	}
+	want := []string{"//app:lib", "//util:b"}
+	if got := labels(p); !reflect.DeepEqual(got, want) || p.Total != 2 {
+		t.Errorf("Parents = %v (total %d), want %v", got, p.Total, want)
+	}
+	if _, ok := g.Parents("//nope:nope", Options{}); ok {
+		t.Error("expected unknown label to report false")
+	}
+}
+
+func TestParentsFilterExternal(t *testing.T) {
+	b := NewBuilder()
+	b.AddRule("//lib:lib", "go_library", nil)
+	b.AddRule("//app:bin", "go_binary", []string{"//lib:lib"})
+	b.AddRule("@ext//:user", "go_library", []string{"//lib:lib"})
+	g := b.Build()
+
+	p, _ := g.Parents("//lib:lib", Options{})
+	if got := labels(p); !reflect.DeepEqual(got, []string{"//app:bin"}) {
+		t.Errorf("Parents = %v, want [//app:bin]", got)
+	}
+	n, _ := g.Target("//lib:lib", Options{})
+	if n.ParentCount != 1 {
+		t.Errorf("ParentCount = %d, want 1", n.ParentCount)
+	}
+	p, _ = g.Parents("//lib:lib", Options{IncludeExternal: true})
+	if got := labels(p); !reflect.DeepEqual(got, []string{"//app:bin", "@ext//:user"}) {
+		t.Errorf("Parents with external = %v", got)
+	}
+}
+
 func TestUnreportedExternalInputsBecomeLeaves(t *testing.T) {
 	b := NewBuilder()
 	b.AddRule("//app:lib", "go_library", []string{

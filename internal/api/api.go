@@ -27,6 +27,7 @@ type Source interface {
 	Len() int
 	Roots(opts graph.Options) graph.Page
 	Children(label string, opts graph.Options) (graph.Page, bool)
+	Parents(label string, opts graph.Options) (graph.Page, bool)
 	Target(label string, opts graph.Options) (graph.Node, bool)
 	Hotspots(opts graph.Options) graph.Page
 	FileHotspots(opts graph.Options) graph.Page
@@ -103,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/refresh", s.handleRefresh)
 	mux.HandleFunc("GET /api/roots", s.handleRoots)
 	mux.HandleFunc("GET /api/children", s.handleChildren)
+	mux.HandleFunc("GET /api/parents", s.handleParents)
 	mux.HandleFunc("GET /api/hotspots", s.handleHotspots)
 	return mux
 }
@@ -163,6 +165,16 @@ func (s *Server) handleRoots(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
+	s.handleNeighbours(w, r, Source.Children)
+}
+
+func (s *Server) handleParents(w http.ResponseWriter, r *http.Request) {
+	s.handleNeighbours(w, r, Source.Parents)
+}
+
+// handleNeighbours serves one page of a target's direct deps or direct
+// dependents, as list returns them, along with the target itself.
+func (s *Server) handleNeighbours(w http.ResponseWriter, r *http.Request, list func(Source, string, graph.Options) (graph.Page, bool)) {
 	label := r.URL.Query().Get("label")
 	if label == "" {
 		writeError(w, http.StatusBadRequest, "missing label")
@@ -177,7 +189,7 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	page, found := src.Children(label, opts)
+	page, found := list(src, label, opts)
 	if !found {
 		writeError(w, http.StatusNotFound, "unknown target: "+label)
 		return

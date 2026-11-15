@@ -1,24 +1,28 @@
-// Places one layer on the canvas: the focused target on top (none for the
-// roots) and its direct deps in centred rows below it. A layer is a star, so a
-// wrapped grid keeps wide layers readable where a single layered row would not.
+// Places one layer on the canvas. Looking down, the focused target sits on top
+// (none for the roots) with its direct deps in centred rows below it. Looking
+// up, its direct dependents sit in rows above it instead, nearest row first. A
+// layer is a star, so a wrapped grid keeps wide layers readable where a single
+// layered row would not.
 
 import type { Edge, Node } from "@xyflow/react";
-import type { Target } from "./api";
+import type { Direction, Target } from "./api";
 
 export const NODE_W = 248;
 export const NODE_H = 68;
 export const FOCUS_W = 360;
-const STUB = 40; // Room for the dotted stub under a node that has deps.
+const STUB = 40; // Room for the dotted stub under (or over) a node that leads on.
 const GAP_X = 28;
 const GAP_Y = 36;
 const FOCUS_GAP = 96;
-const TREE_X = -FOCUS_W / 2 + 56; // Child indent in the one-column tree.
+const TREE_X = -FOCUS_W / 2 + 56; // Item indent in the one-column tree.
 
-export type TargetRole = "focus" | "child" | "root";
+export type TargetRole = "focus" | "child" | "parent" | "root";
 
 export interface TargetNodeData extends Record<string, unknown> {
   target: Target;
   role: TargetRole;
+  /** The layer's direction; the focus offers a stub to flip it. */
+  dir: Direction;
   order: number;
 }
 
@@ -30,6 +34,7 @@ export interface MoreNodeData extends Record<string, unknown> {
 
 export interface EmptyNodeData extends Record<string, unknown> {
   label: string;
+  dir: Direction;
 }
 
 export type GraphNode =
@@ -39,6 +44,7 @@ export type GraphNode =
 
 export interface Layer {
   focus: Target | null;
+  dir: Direction;
   items: Target[];
   total: number;
 }
@@ -48,31 +54,52 @@ function columnsFor(count: number, maxCols: number): number {
   return Math.min(maxCols, Math.ceil(Math.sqrt(count * 2.4)));
 }
 
-/** The part of a layer worth framing first: the focus and its first rows. */
+/**
+ * The part of a layer worth framing first: the focus, its stub and its first
+ * rows. `top` is the world y of the frame's top edge.
+ */
 export interface Frame {
+  top: number;
   width: number;
   height: number;
+  dir: Direction;
 }
 
-/** Slots the layer occupies: its deps, plus a "show more" or empty slot. */
+/** Slots the layer occupies: its items, plus a "show more" or empty slot. */
 function slotCount(hasFocus: boolean, loaded: number, total: number): number {
   if (hasFocus && total === 0) return 1;
   return loaded + (total > loaded ? 1 : 0);
 }
 
+/** World y of an item row: below the focus looking down, above it looking up. */
+function rowY(dir: Direction, hasFocus: boolean, row: number): number {
+  const step = row * (NODE_H + STUB + GAP_Y);
+  if (dir === "up") return -(FOCUS_GAP + NODE_H) - step;
+  return (hasFocus ? NODE_H + FOCUS_GAP : 0) + step;
+}
+
 /**
- * The frame a layer will need, known before its deps arrive (from the target's
- * dep count), so the camera can move while the clicked node glides.
+ * The frame a layer will need, known before its items arrive (from the
+ * target's dep or dependent count), so the camera can move while the clicked
+ * node glides.
  */
-export function frameFor(hasFocus: boolean, loaded: number, total: number, maxCols: number): Frame {
+export function frameFor(
+  hasFocus: boolean,
+  dir: Direction,
+  loaded: number,
+  total: number,
+  maxCols: number,
+): Frame {
   const count = slotCount(hasFocus, loaded, total);
   const cols = columnsFor(count, maxCols);
   const rows = Math.min(Math.ceil(count / cols), 3);
-  const top = hasFocus ? NODE_H + FOCUS_GAP : 0;
-  return {
-    width: Math.max(cols * NODE_W + (cols - 1) * GAP_X, hasFocus ? FOCUS_W : 0),
-    height: top + rows * (NODE_H + STUB) + (rows - 1) * GAP_Y,
-  };
+  const items = rows * (NODE_H + STUB) + (rows - 1) * GAP_Y;
+  const width = Math.max(cols * NODE_W + (cols - 1) * GAP_X, hasFocus ? FOCUS_W : 0);
+  if (!hasFocus) return { top: 0, width, height: items, dir };
+  // The focus carries a stub that flips the direction: above it looking down,
+  // below it looking up.
+  const height = STUB + NODE_H + FOCUS_GAP + items;
+  return { top: dir === "up" ? -(items + FOCUS_GAP) : -STUB, width, height, dir };
 }
 
 export function layoutLayer(
@@ -82,37 +109,49 @@ export function layoutLayer(
 ): { nodes: GraphNode[]; edges: Edge[]; frame: Frame } {
   const nodes: GraphNode[] = [];
   const edges: Edge[] = [];
-  const hasFocus = layer.focus !== null;
+  const { focus, dir } = layer;
+  const hasFocus = focus !== null;
+  const up = hasFocus && dir === "up";
   const remaining = layer.total - layer.items.length;
   const count = slotCount(hasFocus, layer.items.length, layer.total);
   const cols = columnsFor(count, maxCols);
-  const top = hasFocus ? NODE_H + FOCUS_GAP : 0;
-  // One column (phones): deps hang off a left gutter like a file tree, so each
-  // edge visibly enters its own dep instead of reading as a chain.
+  // One column (phones): items hang off a left gutter like a file tree, so each
+  // edge visibly meets its own item instead of reading as a chain.
   const tree = hasFocus && cols === 1 && maxCols === 1;
 
-  if (layer.focus) {
+  // Edges always run from the dependent to its dep: focus -> item looking
+  // down, item -> focus looking up.
+  const link = (item: string): Edge => {
+    if (!focus) throw new Error("link without a focus");
+    if (up) {
+      return tree
+        ? { id: `${item}->${focus.label}`, source: item, sourceHandle: "side-out", target: focus.label, targetHandle: "gutter-in", type: "smoothstep" }
+        : { id: `${item}->${focus.label}`, source: item, sourceHandle: "bottom", target: focus.label, targetHandle: "top-in" };
+    }
+    return tree
+      ? { id: `${focus.label}->${item}`, source: focus.label, sourceHandle: "gutter", target: item, targetHandle: "side", type: "smoothstep" }
+      : { id: `${focus.label}->${item}`, source: focus.label, sourceHandle: "down", target: item, targetHandle: "top" };
+  };
+
+  if (focus) {
     nodes.push({
-      id: layer.focus.label,
+      id: focus.label,
       type: "target",
       position: { x: -FOCUS_W / 2, y: 0 },
-      data: { target: layer.focus, role: "focus", order: 0 },
+      data: { target: focus, role: "focus", dir, order: 0 },
     });
     if (layer.total === 0) {
       nodes.push({
         id: "__empty__",
         type: "empty",
-        position: { x: -NODE_W / 2, y: top },
-        data: { label: layer.focus.label },
+        position: { x: -NODE_W / 2, y: rowY(dir, true, 0) },
+        data: { label: focus.label, dir },
       });
-      edges.push({
-        id: "__empty__",
-        source: layer.focus.label,
-        sourceHandle: "down",
-        target: "__empty__",
-        targetHandle: "top",
-        className: "is-ghost",
-      });
+      edges.push(
+        up
+          ? { id: "__empty__", source: "__empty__", sourceHandle: "bottom", target: focus.label, targetHandle: "top-in", className: "is-ghost" }
+          : { id: "__empty__", source: focus.label, sourceHandle: "down", target: "__empty__", targetHandle: "top", className: "is-ghost" },
+      );
     }
   }
 
@@ -121,35 +160,16 @@ export function layoutLayer(
     const inRow = Math.min(cols, count - row * cols);
     const rowStart = tree ? TREE_X : -(inRow * NODE_W + (inRow - 1) * GAP_X) / 2;
     const x = rowStart + (i % cols) * (NODE_W + GAP_X);
-    const y = top + row * (NODE_H + STUB + GAP_Y);
+    const y = rowY(dir, hasFocus, row);
     const t = layer.items[i];
     if (t) {
       nodes.push({
         id: t.label,
         type: "target",
         position: { x, y },
-        data: { target: t, role: layer.focus ? "child" : "root", order: i },
+        data: { target: t, role: !focus ? "root" : up ? "parent" : "child", dir, order: i },
       });
-      if (layer.focus) {
-        edges.push(
-          tree
-            ? {
-                id: `${layer.focus.label}->${t.label}`,
-                source: layer.focus.label,
-                sourceHandle: "gutter",
-                target: t.label,
-                targetHandle: "side",
-                type: "smoothstep",
-              }
-            : {
-                id: `${layer.focus.label}->${t.label}`,
-                source: layer.focus.label,
-                sourceHandle: "down",
-                target: t.label,
-                targetHandle: "top",
-              },
-        );
-      }
+      if (focus) edges.push(link(t.label));
     } else {
       nodes.push({
         id: "__more__",
@@ -159,5 +179,5 @@ export function layoutLayer(
       });
     }
   }
-  return { nodes, edges, frame: frameFor(hasFocus, layer.items.length, layer.total, maxCols) };
+  return { nodes, edges, frame: frameFor(hasFocus, dir, layer.items.length, layer.total, maxCols) };
 }

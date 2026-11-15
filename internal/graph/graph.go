@@ -113,6 +113,20 @@ func (g *Graph) Children(label string, opts Options) (Page, bool) {
 	return g.page(ids, opts), true
 }
 
+// Parents returns the targets that depend on label directly: its reverse
+// deps. The boolean is false if the label is not in the graph.
+func (g *Graph) Parents(label string, opts Options) (Page, bool) {
+	id, ok := g.lookup(label)
+	if !ok {
+		return Page{}, false
+	}
+	ids := g.parents[id]
+	if !opts.IncludeExternal {
+		ids = g.withoutExternal(ids)
+	}
+	return g.page(ids, opts), true
+}
+
 // Target returns the node for label itself. The boolean is false if the label
 // is not in the graph.
 func (g *Graph) Target(label string, opts Options) (Node, bool) {
@@ -362,22 +376,27 @@ func (g *Graph) page(ids []int32, opts Options) Page {
 }
 
 func (g *Graph) node(id int32, includeExternal bool) Node {
-	depCount := len(g.deps[id])
-	if !includeExternal {
-		depCount = 0
-		for _, dep := range g.deps[id] {
-			if !isExternal(g.labels[dep]) {
-				depCount++
-			}
-		}
-	}
 	return Node{
 		Label:       g.labels[id],
 		Kind:        g.kindNames[g.kinds[id]],
 		External:    isExternal(g.labels[id]),
-		DepCount:    depCount,
-		ParentCount: len(g.parents[id]),
+		DepCount:    g.count(g.deps[id], includeExternal),
+		ParentCount: g.count(g.parents[id], includeExternal),
 	}
+}
+
+// count returns len(ids), leaving out external targets unless includeExternal.
+func (g *Graph) count(ids []int32, includeExternal bool) int {
+	if includeExternal {
+		return len(ids)
+	}
+	n := 0
+	for _, id := range ids {
+		if !isExternal(g.labels[id]) {
+			n++
+		}
+	}
+	return n
 }
 
 func isExternal(label string) bool {

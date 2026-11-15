@@ -90,6 +90,21 @@ func TestRootsThenChildren(t *testing.T) {
 	}
 }
 
+func TestParents(t *testing.T) {
+	s := readyServer(t)
+
+	var parents pageResponse
+	if code := get(t, s, "/api/parents?label=//b:one", &parents); code != http.StatusOK {
+		t.Fatalf("parents status = %d", code)
+	}
+	if parents.Total != 1 || parents.Nodes[0].Label != "//a:lib" || parents.Nodes[0].ParentCount != 1 {
+		t.Errorf("parents = %+v", parents)
+	}
+	if parents.Target == nil || parents.Target.Label != "//b:one" || parents.Target.ParentCount != 1 {
+		t.Errorf("parents.Target = %+v", parents.Target)
+	}
+}
+
 func TestHotspots(t *testing.T) {
 	s := readyServer(t)
 
@@ -127,6 +142,8 @@ func TestBadRequests(t *testing.T) {
 	}{
 		{"/api/children", http.StatusBadRequest},
 		{"/api/children?label=//no:pe", http.StatusNotFound},
+		{"/api/parents", http.StatusBadRequest},
+		{"/api/parents?label=//no:pe", http.StatusNotFound},
 		{"/api/roots?limit=0", http.StatusBadRequest},
 		{"/api/roots?limit=5000", http.StatusBadRequest},
 		{"/api/roots?offset=-1", http.StatusBadRequest},

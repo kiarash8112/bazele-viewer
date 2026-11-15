@@ -146,6 +146,12 @@ button {
   transition: background 120ms, color 120ms;
 }
 
+.crumb-up {
+  vertical-align: -1px;
+  margin-right: 3px;
+  color: var(--accent-ink);
+}
+
 .crumb:hover {
   background: var(--panel-2);
   color: var(--ink);
@@ -495,6 +501,59 @@ button {
 .t-wrap:focus-within .t-stub-count {
   color: var(--accent-ink);
   border-color: var(--accent);
+}
+
+/* A dependent's stub sits above it, pointing on up. It takes no room, so the
+   card itself stays on the layout's grid. */
+.t-enter {
+  position: relative;
+}
+
+.t-stub-up {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  translate: -50% 0;
+  flex-direction: column-reverse;
+}
+
+/* The focus's stub flips the layer between deps and dependents. */
+.t-focus-wrap {
+  position: relative;
+}
+
+.t-stub-down {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% 0;
+}
+
+.t-stub-btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.t-stub-btn .t-stub-count {
+  color: var(--accent-ink);
+  background: var(--bg);
+}
+
+.t-stub-btn:hover .t-stub-line,
+.t-stub-btn:focus-visible .t-stub-line {
+  border-color: var(--accent);
+}
+
+.t-stub-btn:hover .t-stub-count,
+.t-stub-btn:focus-visible .t-stub-count {
+  border-color: var(--accent);
+  border-style: solid;
+  color: var(--ink);
 }
 
 .t-more {

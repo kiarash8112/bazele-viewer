@@ -10,13 +10,14 @@ import {
   type Edge,
   type NodeChange,
 } from "@xyflow/react";
-import { AlertTriangle, ChevronRight, Flame, LoaderCircle, RefreshCw, Workflow } from "lucide-react";
+import { AlertTriangle, ArrowUp, ChevronRight, Flame, LoaderCircle, RefreshCw, Workflow } from "lucide-react";
 import {
   ApiError,
   fetchLayer,
   fetchStatus,
   PAGE_SIZE,
   refreshGraph,
+  type Direction,
   type HotspotKind,
   type Status,
   type Target,
@@ -42,14 +43,34 @@ function writeView(of: HotspotKind) {
   window.location.hash = of === "files" ? `${HOTSPOTS_HASH}/files` : HOTSPOTS_HASH;
 }
 
-function readPath(): string[] {
-  const h = window.location.hash.replace(/^#/, "");
-  if (!h || h.startsWith(HOTSPOTS_HASH)) return [];
-  return h.split(",").map((s) => decodeURIComponent(s)).filter(Boolean);
+/** One layer on the trail: a target, looking at its deps or its dependents. */
+interface Step {
+  label: string;
+  dir: Direction;
 }
 
-function writePath(path: string[]) {
-  const h = path.map(encodeURIComponent).join(",");
+// A layer's key, in the hash and in state: the label looking down, and the
+// label behind a "^" looking up. Labels never start with "^".
+function stepKey(step: Step): string {
+  return step.dir === "up" ? `^${step.label}` : step.label;
+}
+
+function parseKey(key: string): Step {
+  return key.startsWith("^") ? { label: key.slice(1), dir: "up" } : { label: key, dir: "down" };
+}
+
+function readPath(): Step[] {
+  const h = window.location.hash.replace(/^#/, "");
+  if (!h || h.startsWith(HOTSPOTS_HASH)) return [];
+  return h
+    .split(",")
+    .map((s) => decodeURIComponent(s))
+    .filter((s) => s.replace(/^\^/, ""))
+    .map(parseKey);
+}
+
+function writePath(path: Step[]) {
+  const h = path.map((s) => encodeURIComponent(stepKey(s))).join(",");
   if (h === window.location.hash.replace(/^#/, "")) return;
   window.location.hash = h;
   if (!h) history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -71,7 +92,7 @@ function useMediaQuery(query: string): boolean {
 const CAPTION_H = 76; // Room above the layer for its caption.
 
 interface Loaded {
-  key: string | null; // null = roots
+  key: string | null; // null = roots; else a stepKey
   version: string;
   items: Target[];
   total: number;
@@ -80,7 +101,7 @@ interface Loaded {
 type LayerError = { key: string | null; message: string };
 
 export function App() {
-  const [path, setPath] = useState<string[]>(readPath);
+  const [path, setPath] = useState<Step[]>(readPath);
   const [view, setView] = useState<HotspotKind | null>(readView); // null = the graph canvas
   const [status, setStatus] = useState<Status | null>(null);
   const [serverDown, setServerDown] = useState(false);
@@ -88,7 +109,7 @@ export function App() {
   const [layerError, setLayerError] = useState<LayerError | null>(null);
   const [layerLoading, setLayerLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [leaving, setLeaving] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState<Step | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
@@ -99,7 +120,8 @@ export function App() {
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const maxCols = narrow ? 1 : 8;
 
-  const key = path.length ? path[path.length - 1] : null;
+  const step = path.length ? path[path.length - 1] : null;
+  const key = step ? stepKey(step) : null;
   const version = status?.loadedAt ?? "";
   const ready = status?.state === "ready";
 
@@ -146,14 +168,14 @@ export function App() {
     setLayerError(null);
     (async () => {
       try {
-        const [page] = await Promise.all([fetchLayer(key, 0, ctl.signal), minLeave]);
+        const [page] = await Promise.all([fetchLayer(step?.label ?? null, step?.dir ?? "down", 0, ctl.signal), minLeave]);
         for (const t of page.nodes) known.current.set(t.label, t);
         if (page.target) known.current.set(page.target.label, page.target);
         setLoaded({ key, version, items: page.nodes, total: page.total });
       } catch (err) {
         if (ctl.signal.aborted) return;
-        if (err instanceof ApiError && err.status === 404 && key !== null) {
-          setNotice(`${key} is no longer in the graph, so you're back at its parent.`);
+        if (err instanceof ApiError && err.status === 404 && step !== null) {
+          setNotice(`${step.label} is no longer in the graph, so you're back at its parent.`);
           writePath(path.slice(0, -1));
           return;
         }
@@ -166,7 +188,7 @@ export function App() {
       }
     })();
     return () => ctl.abort();
-    // `leaving` and `path` are read once per navigation, not dependencies.
+    // `leaving`, `path` and `step` (which `key` covers) are read once per navigation, not dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, version, ready, retryTick, view]);
 
@@ -182,17 +204,20 @@ export function App() {
   const layer: Layer | null = useMemo(() => {
     if (!shown) return null;
     let focus: Target | null = null;
+    let dir: Direction = "down";
     if (shown.key !== null) {
-      const k = known.current.get(shown.key);
+      const s = parseKey(shown.key);
+      dir = s.dir;
+      const k = known.current.get(s.label);
       focus = {
-        label: shown.key,
+        label: s.label,
         kind: k?.kind ?? "",
-        external: k?.external ?? shown.key.startsWith("@"),
-        depCount: k?.depCount ?? shown.total,
-        parentCount: k?.parentCount ?? 0,
+        external: k?.external ?? s.label.startsWith("@"),
+        depCount: k?.depCount ?? (dir === "down" ? shown.total : 0),
+        parentCount: k?.parentCount ?? (dir === "up" ? shown.total : 0),
       };
     }
-    return { focus, items: shown.items, total: shown.total };
+    return { focus, dir, items: shown.items, total: shown.total };
   }, [shown]);
 
   const { nodes, edges, frame } = useMemo(() => {
@@ -202,10 +227,10 @@ export function App() {
       // The opened target becomes the focus and glides to its slot while the
       // rest fades out; the camera moves with it (see `open`).
       out.nodes = out.nodes.map((n): GraphNode =>
-        n.id === leaving && n.type === "target"
+        n.id === leaving.label && n.type === "target"
           ? {
               ...n,
-              data: { ...n.data, role: "focus" },
+              data: { ...n.data, role: "focus", dir: leaving.dir },
               position: { x: -FOCUS_W / 2, y: 0 },
               className: "is-opening",
               zIndex: 10,
@@ -214,7 +239,9 @@ export function App() {
       );
       out.edges = out.edges.map((e) => ({ ...e, className: "is-leaving" }));
     } else if (hovered) {
-      out.edges = out.edges.map((e) => (e.target === hovered ? { ...e, className: "is-hot", zIndex: 5 } : e));
+      // Light the edge to the hovered item: its target looking down, its source looking up.
+      const end = (e: Edge) => (layer.dir === "up" ? e.source : e.target);
+      out.edges = out.edges.map((e) => (end(e) === hovered ? { ...e, className: "is-hot", zIndex: 5 } : e));
     }
     return out;
   }, [layer, leaving, hovered, loadingMore, maxCols]);
@@ -251,7 +278,11 @@ export function App() {
       const { width: w, height: h } = el.getBoundingClientRect();
       const fit = Math.min(1, (w - 32) / f.width, (h - CAPTION_H - 40) / f.height);
       const zoom = Math.max(narrow ? 0.6 : 0.35, fit);
-      setViewport({ x: w / 2, y: CAPTION_H, zoom }, { duration: animate && !reduceMotion ? 460 : 0 });
+      // Pin the frame's top under the caption. Looking up, if it can't fit,
+      // pin its bottom instead, so the focus stays in view.
+      const y =
+        f.dir === "up" && fit < zoom ? h - 40 - (f.top + f.height) * zoom : CAPTION_H - f.top * zoom;
+      setViewport({ x: w / 2, y, zoom }, { duration: animate && !reduceMotion ? 460 : 0 });
     },
     [narrow, reduceMotion, setViewport],
   );
@@ -267,29 +298,32 @@ export function App() {
   }, [current, frame, leaving, maxCols, frameLayer]);
 
   const open = useCallback(
-    (label: string) => {
+    (label: string, dir: Direction) => {
       if (leaving) return;
+      const next = { label, dir };
       setHovered(null);
-      setLeaving(label);
+      setLeaving(next);
       // Move the camera now, in step with the glide: the new layer's size is
-      // known from the target's dep count before its deps arrive.
-      const deps = known.current.get(label)?.depCount ?? 0;
-      frameLayer(frameFor(true, Math.min(deps, PAGE_SIZE), deps, maxCols), true);
-      framedFor.current = `${label}@${version}@${maxCols}`;
-      writePath([...path, label]);
+      // known from the target's counts before its items arrive.
+      const t = known.current.get(label);
+      const n = (dir === "up" ? t?.parentCount : t?.depCount) ?? 0;
+      frameLayer(frameFor(true, dir, Math.min(n, PAGE_SIZE), n, maxCols), true);
+      framedFor.current = `${stepKey(next)}@${version}@${maxCols}`;
+      writePath([...path, next]);
     },
     [path, leaving, frameLayer, maxCols, version],
   );
 
   const goTo = useCallback((depth: number) => writePath(path.slice(0, depth)), [path]);
   const showGraph = useCallback(() => writePath(path), [path]);
-  const openFromHotspots = useCallback((label: string) => writePath([label]), []);
+  const openFromHotspots = useCallback((label: string) => writePath([{ label, dir: "down" }]), []);
 
   const loadMore = useCallback(async () => {
     if (!current || loadingMore) return;
     setLoadingMore(true);
     try {
-      const page = await fetchLayer(current.key, current.items.length);
+      const s = current.key === null ? null : parseKey(current.key);
+      const page = await fetchLayer(s?.label ?? null, s?.dir ?? "down", current.items.length);
       for (const t of page.nodes) known.current.set(t.label, t);
       setLoaded((prev) =>
         prev && prev.key === current.key
@@ -372,7 +406,7 @@ export function App() {
               position="bottom-right"
               pannable
               zoomable
-              nodeColor={(n) => (n.id === key ? "var(--accent)" : "var(--mini-node)")}
+              nodeColor={(n) => (n.id === step?.label ? "var(--accent)" : "var(--mini-node)")}
               nodeBorderRadius={4}
               maskColor="var(--mini-mask)"
               ariaLabel="Overview of this layer"
@@ -405,7 +439,7 @@ export function App() {
 // ---- Top bar ----
 
 function TopBar(props: {
-  path: string[];
+  path: Step[];
   view: HotspotKind | null;
   narrow: boolean;
   onCrumb(depth: number): void;
@@ -427,8 +461,8 @@ function TopBar(props: {
 
   // Long trails keep the first step and the last two (on a phone, only the
   // current one); the middle folds away.
-  const visible = path.map((label, i) => ({ label, depth: i + 1 }));
-  let items: ({ label: string; depth: number } | null)[] = visible;
+  const visible = path.map((s, i) => ({ ...s, depth: i + 1 }));
+  let items: (Step & { depth: number } | null)[] = visible;
   if (!expanded && props.narrow && path.length > 1) items = [null, ...visible.slice(-1)];
   else if (!expanded && path.length > 4) items = [visible[0], null, ...visible.slice(-2)];
 
@@ -464,16 +498,17 @@ function TopBar(props: {
             </button>
           </li>
           {items.map((it, i) => (
-            <li key={it ? it.label + it.depth : "fold" + i}>
+            <li key={it ? stepKey(it) + it.depth : "fold" + i}>
               <ChevronRight size={14} className="crumb-sep" aria-hidden="true" />
               {it ? (
                 <button
                   type="button"
                   className="crumb mono"
-                  title={it.label}
+                  title={it.dir === "up" ? `Used by ${it.label}` : it.label}
                   aria-current={it.depth === path.length ? "page" : undefined}
                   onClick={() => onCrumb(it.depth)}
                 >
+                  {it.dir === "up" && <ArrowUp size={12} className="crumb-up" aria-label="Used by" />}
                   {it.label}
                 </button>
               ) : (
@@ -556,7 +591,8 @@ function StatusPill({ status, serverDown, onReload }: { status: Status | null; s
 // ---- Canvas overlays ----
 
 function LayerCaption({ loaded, loading }: { loaded: Loaded; loading: boolean }) {
-  const name = loaded.key === null ? null : loaded.key.slice(loaded.key.lastIndexOf(":") + 1) || loaded.key;
+  const step = loaded.key === null ? null : parseKey(loaded.key);
+  const name = step === null ? null : step.label.slice(step.label.lastIndexOf(":") + 1) || step.label;
   const partial = loaded.items.length < loaded.total;
   return (
     <div className="caption">
@@ -565,7 +601,7 @@ function LayerCaption({ loaded, loading }: { loaded: Loaded; loading: boolean })
           "Workspace roots"
         ) : (
           <>
-            Deps of <span className="mono">:{name}</span>
+            {step?.dir === "up" ? "Used by" : "Deps of"} <span className="mono">:{name}</span>
           </>
         )}
       </h1>
@@ -620,7 +656,7 @@ function Overlay(props: {
   }
   if (layerError) {
     return (
-      <Panel title={layerError.key ? `Couldn't load the deps of ${layerError.key}` : "Couldn't load the roots"} tone="bad">
+      <Panel title={layerErrorTitle(layerError.key)} tone="bad">
         <pre>{layerError.message}</pre>
         <button type="button" className="btn" onClick={props.onRetryLayer}>
           <RefreshCw size={14} /> Try again
@@ -638,6 +674,12 @@ function Overlay(props: {
     );
   }
   return null;
+}
+
+function layerErrorTitle(key: string | null): string {
+  if (key === null) return "Couldn't load the roots";
+  const { label, dir } = parseKey(key);
+  return dir === "up" ? `Couldn't load what depends on ${label}` : `Couldn't load the deps of ${label}`;
 }
 
 function Panel(props: { title: string; tone?: "bad"; spinner?: boolean; children: ReactNode }) {

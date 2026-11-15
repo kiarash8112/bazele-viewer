@@ -18,7 +18,7 @@ export type HotspotKind = "targets" | "files";
 export type HotspotSort = "dependents" | "changes";
 
 export interface Page {
-  /** The queried target itself (children requests only). */
+  /** The queried target itself (children and parents requests only). */
   target?: Target;
   nodes: Target[];
   total: number;
@@ -71,12 +71,23 @@ export async function refreshGraph(): Promise<void> {
   await fetch("/api/refresh", { method: "POST" });
 }
 
-/** Fetches the roots (label === null) or one target's direct deps. */
-export function fetchLayer(label: string | null, offset: number, signal?: AbortSignal): Promise<Page> {
+/** Which way a layer looks from its target: at its deps, or at its dependents. */
+export type Direction = "down" | "up";
+
+/**
+ * Fetches the roots (label === null), or one target's direct deps (down) or
+ * direct dependents (up).
+ */
+export function fetchLayer(
+  label: string | null,
+  dir: Direction,
+  offset: number,
+  signal?: AbortSignal,
+): Promise<Page> {
   const q = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) });
   if (label === null) return getJSON<Page>(`/api/roots?${q}`, signal);
   q.set("label", label);
-  return getJSON<Page>(`/api/children?${q}`, signal);
+  return getJSON<Page>(`/api/${dir === "up" ? "parents" : "children"}?${q}`, signal);
 }
 
 export const HOTSPOT_PAGE_SIZE = 100;
