@@ -88,8 +88,8 @@ type hotspots struct {
 // Len returns the number of targets in the graph.
 func (g *Graph) Len() int { return len(g.labels) }
 
-// Roots returns the main entry points of the workspace: the binaries that no
-// non-test target depends on, or, if there are none, all the targets that no
+// Roots returns the main entry points of the workspace: the binaries and apps
+// that no non-test target depends on, or, if there are none, all the targets that no
 // non-test target depends on.
 func (g *Graph) Roots(opts Options) Page {
 	ids := g.roots
@@ -595,7 +595,7 @@ func (g *Graph) computeRoots() {
 			// Not an entry point, even if it is a binary: a code generator
 			// or other tool another target runs, such as rules_js's
 			// _run_binary and js_binary.
-		case strings.HasSuffix(g.kindNames[g.kinds[id]], "_binary"):
+		case g.isEntryPoint(id):
 			binaries = append(binaries, id)
 		default:
 			unused = append(unused, id)
@@ -610,8 +610,19 @@ func (g *Graph) computeRoots() {
 	slices.Sort(g.rootsAndTests)
 }
 
+// isEntryPoint reports whether a target is something you run or ship: a
+// binary, or an app bundle such as ios_application or macos_application.
+func (g *Graph) isEntryPoint(id int32) bool {
+	kind := g.kindNames[g.kinds[id]]
+	return strings.HasSuffix(kind, "_binary") || strings.HasSuffix(kind, "_application")
+}
+
+// isTest reports whether a target is a test, including the hidden bundle
+// rules_apple's ios_unit_test and ios_ui_test macros create, such as
+// _ios_internal_unit_test_bundle, which depends on the app as its test host.
 func (g *Graph) isTest(id int32) bool {
-	return strings.HasSuffix(g.kindNames[g.kinds[id]], "_test")
+	kind := g.kindNames[g.kinds[id]]
+	return strings.HasSuffix(kind, "_test") || strings.HasSuffix(kind, "_test_bundle")
 }
 
 func (g *Graph) hasNonTestParent(id int32) bool {

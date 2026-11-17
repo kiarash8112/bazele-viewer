@@ -49,9 +49,11 @@ func TestRootsSkipBinariesOtherTargetsUse(t *testing.T) {
 	b.AddRule("//gen:run", "_run_binary", []string{"//gen:tool"}) // used by //app:lib
 	b.AddRule("//gen:tool", "js_binary", nil)                     // used by //gen:run
 	b.AddRule("//cli:bin", "go_binary", nil)
+	b.AddRule("//ios:App", "ios_application", []string{"//app:lib"})
+	b.AddRule("//ios:App.Tests.__internal__.__test_bundle", "_ios_internal_unit_test_bundle", []string{"//ios:App"}) // test host keeps it a root
 	b.AddRule("//cli:bin_test", "go_test", []string{"//cli:bin"}) // a test's use keeps it a root
 	got := labels(b.Build().Roots(Options{}))
-	if want := []string{"//app:bin", "//cli:bin"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"//app:bin", "//cli:bin", "//ios:App"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("Roots = %v, want %v", got, want)
 	}
 }
