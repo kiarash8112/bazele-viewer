@@ -32,9 +32,13 @@ export interface Status {
   state: GraphState;
   loading: boolean;
   targets: number;
+  /** Modules in the `bazel mod graph`; 0 when it is unavailable. */
+  modules: number;
   loadedAt?: string;
   warning?: string;
   error?: string;
+  /** Why the module graph is unavailable, when it is. */
+  modulesError?: string;
 }
 
 export const PAGE_SIZE = 200;
@@ -74,17 +78,22 @@ export async function refreshGraph(): Promise<void> {
 /** Which way a layer looks from its target: at its deps, or at its dependents. */
 export type Direction = "down" | "up";
 
+/** Which graph to walk: the build targets, or the Bazel modules (`bazel mod graph`). */
+export type GraphKind = "targets" | "modules";
+
 /**
- * Fetches the roots (label === null), or one target's direct deps (down) or
- * direct dependents (up).
+ * Fetches the roots (label === null), or one node's direct deps (down) or
+ * direct dependents (up), in the target graph or the module graph.
  */
 export function fetchLayer(
+  graph: GraphKind,
   label: string | null,
   dir: Direction,
   offset: number,
   signal?: AbortSignal,
 ): Promise<Page> {
   const q = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) });
+  if (graph === "modules") q.set("graph", "modules");
   if (label === null) return getJSON<Page>(`/api/roots?${q}`, signal);
   q.set("label", label);
   return getJSON<Page>(`/api/${dir === "up" ? "parents" : "children"}?${q}`, signal);

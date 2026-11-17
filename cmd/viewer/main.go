@@ -47,7 +47,7 @@ func main() {
 	defer stop()
 
 	opts := bazelquery.Options{Bazel: *bazel, Workspace: *workspace}
-	server := api.New(ctx, func(ctx context.Context) (api.Source, string, error) {
+	server := api.New(ctx, func(ctx context.Context) (api.Graphs, string, error) {
 		// Read the git history while bazel runs; it takes about a second.
 		type history struct {
 			commits map[string][]int32
@@ -62,8 +62,19 @@ func main() {
 		g, warning, err := bazelquery.Load(ctx, opts)
 		h := <-historyCh
 		if err != nil {
-			return nil, "", err
+			return api.Graphs{}, "", err
 		}
+		graphs := api.Graphs{Targets: g}
+
+		// Run after the query, not beside it: Bazel runs one command at a
+		// time per workspace. Without it, only the Modules view is missing.
+		if modules, err := bazelquery.LoadModules(ctx, opts); err != nil {
+			log.Printf("module graph unavailable: %v", err)
+			graphs.ModulesError = err.Error()
+		} else {
+			graphs.Modules = modules
+		}
+
 		if h.err != nil {
 			// The graph is still useful without change counts.
 			log.Printf("change counts unavailable: %v", h.err)
@@ -71,7 +82,7 @@ func main() {
 		} else {
 			g.SetChanges(h.commits)
 		}
-		return g, warning, nil
+		return graphs, warning, nil
 	})
 	server.Refresh()
 

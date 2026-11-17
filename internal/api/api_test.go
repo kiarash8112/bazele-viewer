@@ -23,12 +23,19 @@ func testGraph() *graph.Graph {
 	return b.Build()
 }
 
+func testModules() *graph.Graph {
+	b := graph.NewBuilder()
+	b.AddRule("app@1.0", "root module", []string{"rules_go@0.57.0"})
+	b.AddRule("rules_go@0.57.0", "module", nil)
+	return b.Build()
+}
+
 func staticLoader(warning string, err error) Loader {
-	return func(context.Context) (Source, string, error) {
+	return func(context.Context) (Graphs, string, error) {
 		if err != nil {
-			return nil, "", err
+			return Graphs{}, "", err
 		}
-		return testGraph(), warning, nil
+		return Graphs{Targets: testGraph(), Modules: testModules()}, warning, nil
 	}
 }
 
@@ -134,6 +141,50 @@ func TestHotspots(t *testing.T) {
 	}
 }
 
+func TestModules(t *testing.T) {
+	s := readyServer(t)
+
+	var st statusResponse
+	get(t, s, "/api/status", &st)
+	if st.Targets != 4 || st.Modules != 2 {
+		t.Errorf("status = %+v, want 4 targets and 2 modules", st)
+	}
+
+	var roots pageResponse
+	if code := get(t, s, "/api/roots?graph=modules", &roots); code != http.StatusOK {
+		t.Fatalf("module roots status = %d", code)
+	}
+	if roots.Total != 1 || roots.Nodes[0].Label != "app@1.0" || roots.Nodes[0].DepCount != 1 {
+		t.Errorf("module roots = %+v", roots)
+	}
+
+	var parents pageResponse
+	if code := get(t, s, "/api/parents?graph=modules&label=rules_go@0.57.0", &parents); code != http.StatusOK {
+		t.Fatalf("module parents status = %d", code)
+	}
+	if parents.Total != 1 || parents.Nodes[0].Label != "app@1.0" {
+		t.Errorf("module parents = %+v", parents)
+	}
+}
+
+func TestModulesUnavailable(t *testing.T) {
+	s := New(context.Background(), func(context.Context) (Graphs, string, error) {
+		return Graphs{Targets: testGraph(), ModulesError: "no MODULE.bazel"}, "", nil
+	})
+	s.Refresh()
+	if st := waitIdle(t, s); st.State != "ready" || st.ModulesError != "no MODULE.bazel" {
+		t.Errorf("status = %+v", st)
+	}
+	var body map[string]string
+	code := get(t, s, "/api/roots?graph=modules", &body)
+	if code != http.StatusServiceUnavailable || !strings.Contains(body["error"], "no MODULE.bazel") {
+		t.Errorf("module roots: status %d, body %v; want 503 with the reason", code, body)
+	}
+	if code := get(t, s, "/api/roots", &pageResponse{}); code != http.StatusOK {
+		t.Errorf("target roots status = %d, want 200", code)
+	}
+}
+
 func TestBadRequests(t *testing.T) {
 	s := readyServer(t)
 	tests := []struct {
@@ -150,6 +201,7 @@ func TestBadRequests(t *testing.T) {
 		{"/api/roots?tests=maybe", http.StatusBadRequest},
 		{"/api/hotspots?of=packages", http.StatusBadRequest},
 		{"/api/hotspots?sort=size", http.StatusBadRequest},
+		{"/api/roots?graph=files", http.StatusBadRequest},
 	}
 	for _, tc := range tests {
 		var body map[string]string
@@ -185,11 +237,11 @@ func TestWarningIsReported(t *testing.T) {
 
 func TestFailedRefreshKeepsPreviousGraph(t *testing.T) {
 	var fail atomic.Bool
-	s := New(context.Background(), func(context.Context) (Source, string, error) {
+	s := New(context.Background(), func(context.Context) (Graphs, string, error) {
 		if fail.Load() {
-			return nil, "", errors.New("broken")
+			return Graphs{}, "", errors.New("broken")
 		}
-		return testGraph(), "", nil
+		return Graphs{Targets: testGraph()}, "", nil
 	})
 	s.Refresh()
 	waitIdle(t, s)
@@ -208,10 +260,10 @@ func TestFailedRefreshKeepsPreviousGraph(t *testing.T) {
 func TestRefreshDuringLoadRunsAgain(t *testing.T) {
 	release := make(chan struct{})
 	var loads atomic.Int32
-	s := New(context.Background(), func(context.Context) (Source, string, error) {
+	s := New(context.Background(), func(context.Context) (Graphs, string, error) {
 		loads.Add(1)
 		<-release
-		return testGraph(), "", nil
+		return Graphs{Targets: testGraph()}, "", nil
 	})
 	s.Refresh()
 	s.Refresh()

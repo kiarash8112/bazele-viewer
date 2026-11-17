@@ -8,6 +8,8 @@ often they change.
   time: click a target to see its direct deps, with a breadcrumb back. The
   canvas pans and zooms, and stays fast on graphs with tens of thousands of
   targets because it only ever draws one layer.
+- **Modules.** The same canvas over `bazel mod graph`: start at the root
+  module and open each Bazel module's deps, or the modules that depend on it.
 - **Hotspots.** Every target, or every source file, ranked by how many targets
   depend on it directly or transitively: what a change to it affects. Each row
   also shows how many commits changed it in the last 6 months. Sort by
@@ -56,8 +58,8 @@ curl 'localhost:8080/products?q=mug'
 
 ## How it works
 
-On each load the viewer runs two commands in the inspected workspace, in
-parallel:
+On each load the viewer runs these commands in the inspected workspace. The
+first two run in parallel:
 
 1. **`bazel query '//...:*' --output=streamed_jsonproto`**: every target in the
    main repository, with each rule's direct inputs. This does not load external
@@ -70,6 +72,11 @@ parallel:
    commits that touched it; a target's is the number of distinct commits that
    touched any of its own source files. Merge commits are not counted. If git
    fails, the graph still loads and the counts show as unknown.
+3. **`bazel mod graph --output=json`**, after the query, because Bazel runs one
+   command at a time per workspace: the Bazel modules and their deps, as Bzlmod
+   resolved them. Each module is shown as `name@version`. If the command fails,
+   for example in a workspace without Bzlmod, only the Modules view is missing;
+   it shows the error.
 
 The graph is kept in memory as a compact index. Hotspot rankings are computed
 on the first request, walking every target's reverse dependencies on all CPUs:
@@ -86,7 +93,7 @@ your workspace's `.bazelversion` instead.
   the commits since its rename.
 - A BUILD file is a source file that no rule lists as an input, so BUILD files
   show changes but no dependents.
-- You can see what a target depends on, but not yet what depends on it.
+- The Modules view has no hotspots: hotspots rank targets and files only.
 
 ## HTTP API
 
@@ -94,14 +101,17 @@ The frontend uses a small JSON API, which you can also call directly.
 
 | Endpoint | |
 | --- | --- |
-| `GET /api/status` | `state` (`loading`, `ready` or `error`), target count, load time, `warning`, `error` |
+| `GET /api/status` | `state` (`loading`, `ready` or `error`), target and module counts, load time, `warning`, `error`, `modulesError` |
 | `POST /api/refresh` | Reload the graph in the background |
 | `GET /api/roots` | The workspace's entry points |
 | `GET /api/children?label=//pkg:target` | A target's direct deps; 404 for an unknown label |
+| `GET /api/parents?label=//pkg:target` | A target's direct dependents; 404 for an unknown label |
 | `GET /api/hotspots?of=targets\|files&sort=dependents\|changes&q=…` | Ranked targets or source files |
 
 List endpoints take `offset` and `limit` (default 50, at most 1000) and return
-`total`. `external=true` includes `@external` targets; `tests=true` adds test
+`total`. On roots, children and parents, `graph=modules` walks the module graph
+instead of the targets, with labels such as `rules_go@0.57.0`; it returns 503
+when `bazel mod graph` failed. `external=true` includes `@external` targets; `tests=true` adds test
 targets to the roots. On hotspots, `q` keeps labels that contain it, ignoring
 case, and each result keeps its `rank` in the full ranking. Until the first load
 finishes, data endpoints return 503.
@@ -129,7 +139,7 @@ lockfile stays in step with `web/package.json`.
 | Path | |
 | --- | --- |
 | `cmd/viewer` | The viewer binary: flags, loading, HTTP server |
-| `internal/bazelquery` | Runs `bazel query` and parses its output |
+| `internal/bazelquery` | Runs `bazel query` and `bazel mod graph` and parses their output |
 | `internal/gitchanges` | Reads recent changes from `git log` |
 | `internal/graph` | The in-memory graph, roots, deps and hotspot rankings |
 | `internal/api` | HTTP handlers and background reloads |

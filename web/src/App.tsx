@@ -10,7 +10,7 @@ import {
   type Edge,
   type NodeChange,
 } from "@xyflow/react";
-import { AlertTriangle, ArrowUp, ChevronRight, Flame, ListTree, LoaderCircle, RefreshCw, StepForward, Workflow } from "lucide-react";
+import { AlertTriangle, ArrowUp, Boxes, ChevronRight, Flame, ListTree, LoaderCircle, RefreshCw, StepForward, Workflow } from "lucide-react";
 import {
   ApiError,
   fetchLayer,
@@ -18,6 +18,7 @@ import {
   PAGE_SIZE,
   refreshGraph,
   type Direction,
+  type GraphKind,
   type HotspotKind,
   type Status,
   type Target,
@@ -25,13 +26,22 @@ import {
 import { ExploreCanvas } from "./explore";
 import { Hotspots } from "./hotspots";
 import { FOCUS_W, frameFor, layoutLayer, type Frame, type GraphNode, type Layer } from "./layout";
-import { ActionsContext, nodeTypes, type CanvasActions } from "./nodes";
+import { ActionsContext, nodeTypes, shortName, type CanvasActions } from "./nodes";
 
 // ---- Path <-> URL hash, so the browser's back button walks up the graph. ----
 
 // The hotspots view lives at #hotspots and #hotspots/files. Labels start with
 // "//" or "@", so they never collide with it.
 const HOTSPOTS_HASH = "hotspots";
+
+// The module graph lives at #modules (its root) and #modules/<path>. Its path
+// is kept apart from the target graph's, which has no prefix.
+const MODULES_HASH = "modules";
+
+function readGraph(): GraphKind {
+  const h = window.location.hash.replace(/^#/, "");
+  return h === MODULES_HASH || h.startsWith(`${MODULES_HASH}/`) ? "modules" : "targets";
+}
 
 function readView(): HotspotKind | null {
   const h = window.location.hash.replace(/^#/, "");
@@ -61,8 +71,9 @@ function parseKey(key: string): Step {
 }
 
 function readPath(): Step[] {
-  const h = window.location.hash.replace(/^#/, "");
+  let h = window.location.hash.replace(/^#/, "");
   if (!h || h.startsWith(HOTSPOTS_HASH)) return [];
+  if (readGraph() === "modules") h = h.slice(MODULES_HASH.length + 1);
   return h
     .split(",")
     .map((s) => decodeURIComponent(s))
@@ -70,8 +81,9 @@ function readPath(): Step[] {
     .map(parseKey);
 }
 
-function writePath(path: Step[]) {
-  const h = path.map((s) => encodeURIComponent(stepKey(s))).join(",");
+function writePath(path: Step[], graph: GraphKind) {
+  let h = path.map((s) => encodeURIComponent(stepKey(s))).join(",");
+  if (graph === "modules") h = h ? `${MODULES_HASH}/${h}` : MODULES_HASH;
   if (h === window.location.hash.replace(/^#/, "")) return;
   window.location.hash = h;
   if (!h) history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -113,16 +125,18 @@ function useMediaQuery(query: string): boolean {
 const CAPTION_H = 76; // Room above the layer for its caption.
 
 interface Loaded {
+  graph: GraphKind;
   key: string | null; // null = roots; else a stepKey
   version: string;
   items: Target[];
   total: number;
 }
 
-type LayerError = { key: string | null; message: string };
+type LayerError = { graph: GraphKind; key: string | null; message: string };
 
 export function App() {
   const [path, setPath] = useState<Step[]>(readPath);
+  const [graph, setGraph] = useState<GraphKind>(readGraph);
   const [view, setView] = useState<HotspotKind | null>(readView); // null = the graph canvas
   const [mode, setModeState] = useState<Mode>(readMode);
   const setMode = useCallback((m: Mode) => {
@@ -157,11 +171,20 @@ export function App() {
     const onHash = () => {
       const v = readView();
       setView(v);
-      if (!v) setPath(readPath());
+      if (!v) {
+        setGraph(readGraph());
+        setPath(readPath());
+      }
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // The last path in each graph, so the view switch returns to it.
+  const lastPaths = useRef<Record<GraphKind, Step[]>>({ targets: [], modules: [] });
+  useEffect(() => {
+    lastPaths.current[graph] = path;
+  }, [graph, path]);
 
   // Poll status: it drives the first load, reloads and the status pill.
   useEffect(() => {
@@ -194,18 +217,21 @@ export function App() {
     setLayerError(null);
     (async () => {
       try {
-        const [page] = await Promise.all([fetchLayer(step?.label ?? null, step?.dir ?? "down", 0, ctl.signal), minLeave]);
+        const [page] = await Promise.all([
+          fetchLayer(graph, step?.label ?? null, step?.dir ?? "down", 0, ctl.signal),
+          minLeave,
+        ]);
         for (const t of page.nodes) known.current.set(t.label, t);
         if (page.target) known.current.set(page.target.label, page.target);
-        setLoaded({ key, version, items: page.nodes, total: page.total });
+        setLoaded({ graph, key, version, items: page.nodes, total: page.total });
       } catch (err) {
         if (ctl.signal.aborted) return;
         if (err instanceof ApiError && err.status === 404 && step !== null) {
           setNotice(`${step.label} is no longer in the graph, so you're back at its parent.`);
-          writePath(path.slice(0, -1));
+          writePath(path.slice(0, -1), graph);
           return;
         }
-        setLayerError({ key, message: err instanceof Error ? err.message : String(err) });
+        setLayerError({ graph, key, message: err instanceof Error ? err.message : String(err) });
       } finally {
         if (!ctl.signal.aborted) {
           setLayerLoading(false);
@@ -216,7 +242,7 @@ export function App() {
     return () => ctl.abort();
     // `leaving`, `path` and `step` (which `key` covers) are read once per navigation, not dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, version, ready, retryTick, view, mode]);
+  }, [graph, key, version, ready, retryTick, view, mode]);
 
   useEffect(() => {
     if (!notice) return;
@@ -224,8 +250,9 @@ export function App() {
     return () => clearTimeout(t);
   }, [notice]);
 
-  const current = loaded && loaded.key === key ? loaded : null;
-  const shown = current ?? loaded; // Keep the old layer on screen while the next one loads.
+  const current = loaded && loaded.graph === graph && loaded.key === key ? loaded : null;
+  // Keep the old layer on screen while the next one loads, but never one from the other graph.
+  const shown = current ?? (loaded?.graph === graph ? loaded : null);
 
   const layer: Layer | null = useMemo(() => {
     if (!shown) return null;
@@ -318,7 +345,7 @@ export function App() {
   // Layers reached without a click (first load, back, breadcrumb, reload).
   useEffect(() => {
     if (!current || !frame || leaving) return;
-    const id = `${current.key}@${current.version}@${maxCols}`;
+    const id = `${current.graph}@${current.key}@${current.version}@${maxCols}`;
     if (framedFor.current === id) return;
     const first = framedFor.current === null;
     framedFor.current = id;
@@ -336,25 +363,25 @@ export function App() {
       const t = known.current.get(label);
       const n = (dir === "up" ? t?.parentCount : t?.depCount) ?? 0;
       frameLayer(frameFor(true, dir, Math.min(n, PAGE_SIZE), n, maxCols), true);
-      framedFor.current = `${stepKey(next)}@${version}@${maxCols}`;
-      writePath([...path, next]);
+      framedFor.current = `${graph}@${stepKey(next)}@${version}@${maxCols}`;
+      writePath([...path, next], graph);
     },
-    [path, leaving, frameLayer, maxCols, version],
+    [graph, path, leaving, frameLayer, maxCols, version],
   );
 
-  const goTo = useCallback((depth: number) => writePath(path.slice(0, depth)), [path]);
-  const showGraph = useCallback(() => writePath(path), [path]);
-  const openFromHotspots = useCallback((label: string) => writePath([{ label, dir: "down" }]), []);
+  const goTo = useCallback((depth: number) => writePath(path.slice(0, depth), graph), [graph, path]);
+  const showGraph = useCallback((g: GraphKind) => writePath(lastPaths.current[g], g), []);
+  const openFromHotspots = useCallback((label: string) => writePath([{ label, dir: "down" }], "targets"), []);
 
   const loadMore = useCallback(async () => {
     if (!current || loadingMore) return;
     setLoadingMore(true);
     try {
       const s = current.key === null ? null : parseKey(current.key);
-      const page = await fetchLayer(s?.label ?? null, s?.dir ?? "down", current.items.length);
+      const page = await fetchLayer(current.graph, s?.label ?? null, s?.dir ?? "down", current.items.length);
       for (const t of page.nodes) known.current.set(t.label, t);
       setLoaded((prev) =>
-        prev && prev.key === current.key
+        prev && prev.graph === current.graph && prev.key === current.key
           ? { ...prev, items: [...prev.items, ...page.nodes], total: page.total }
           : prev,
       );
@@ -370,11 +397,11 @@ export function App() {
   // Escape steps back up one layer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !view && path.length > 0) writePath(path.slice(0, -1));
+      if (e.key === "Escape" && !view && path.length > 0) writePath(path.slice(0, -1), graph);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [path, view]);
+  }, [graph, path, view]);
 
   const reload = useCallback(async () => {
     await refreshGraph();
@@ -385,6 +412,7 @@ export function App() {
     <div className="app">
       <TopBar
         path={path}
+        graph={graph}
         view={view}
         mode={mode}
         onMode={setMode}
@@ -400,6 +428,7 @@ export function App() {
         <main className="hot-main">
           <Hotspots of={view} ready={ready} version={version} onOpen={openFromHotspots} onSwitch={writeView} />
           <Overlay
+            graph={graph}
             status={status}
             serverDown={serverDown}
             layer={null}
@@ -412,6 +441,8 @@ export function App() {
         <>
           {ready && (
             <ExploreCanvas
+              key={graph}
+              graph={graph}
               seed={step}
               version={version}
               narrow={narrow}
@@ -420,6 +451,7 @@ export function App() {
             />
           )}
           <Overlay
+            graph={graph}
             status={status}
             serverDown={serverDown}
             layer={null}
@@ -472,10 +504,11 @@ export function App() {
         {shown && ready && <LayerCaption loaded={shown} loading={layerLoading} />}
 
         <Overlay
+          graph={graph}
           status={status}
           serverDown={serverDown}
           layer={current}
-          layerError={layerError && layerError.key === key ? layerError : null}
+          layerError={layerError && layerError.graph === graph && layerError.key === key ? layerError : null}
           onRetryGraph={reload}
           onRetryLayer={() => setRetryTick((n) => n + 1)}
         />
@@ -495,12 +528,13 @@ export function App() {
 
 function TopBar(props: {
   path: Step[];
+  graph: GraphKind;
   view: HotspotKind | null;
   mode: Mode;
   onMode(mode: Mode): void;
   narrow: boolean;
   onCrumb(depth: number): void;
-  onGraph(): void;
+  onGraph(graph: GraphKind): void;
   onHotspots(): void;
   status: Status | null;
   serverDown: boolean;
@@ -530,9 +564,25 @@ function TopBar(props: {
         <span>Bazel Graph</span>
       </div>
       <div className="seg viewswitch" role="group" aria-label="View">
-        <button type="button" aria-pressed={!props.view} onClick={props.onGraph} aria-label="Graph">
+        <button
+          type="button"
+          aria-pressed={!props.view && props.graph === "targets"}
+          onClick={() => props.onGraph("targets")}
+          title="Graph: build targets, from bazel query"
+          aria-label="Graph"
+        >
           <Workflow size={14} aria-hidden="true" />
           <span>Graph</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={!props.view && props.graph === "modules"}
+          onClick={() => props.onGraph("modules")}
+          title="Modules: Bazel modules, from bazel mod graph"
+          aria-label="Modules"
+        >
+          <Boxes size={14} aria-hidden="true" />
+          <span>Modules</span>
         </button>
         <button type="button" aria-pressed={!!props.view} onClick={props.onHotspots} aria-label="Hotspots">
           <Flame size={14} aria-hidden="true" />
@@ -575,7 +625,7 @@ function TopBar(props: {
               aria-current={path.length === 0 ? "page" : undefined}
               onClick={() => onCrumb(0)}
             >
-              Roots
+              {props.graph === "modules" ? "Root module" : "Roots"}
             </button>
           </li>
           {items.map((it, i) => (
@@ -607,7 +657,12 @@ function TopBar(props: {
         </ol>
       </nav>
       )}
-      <StatusPill status={props.status} serverDown={props.serverDown} onReload={props.onReload} />
+      <StatusPill
+        status={props.status}
+        modules={!props.view && props.graph === "modules"}
+        serverDown={props.serverDown}
+        onReload={props.onReload}
+      />
     </header>
   );
 }
@@ -617,7 +672,18 @@ function formatTime(iso?: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function StatusPill({ status, serverDown, onReload }: { status: Status | null; serverDown: boolean; onReload(): void }) {
+function StatusPill({
+  status,
+  modules,
+  serverDown,
+  onReload,
+}: {
+  status: Status | null;
+  /** Count modules instead of targets. */
+  modules: boolean;
+  serverDown: boolean;
+  onReload(): void;
+}) {
   let tone = "ok";
   let text: string;
   if (serverDown) {
@@ -633,7 +699,8 @@ function StatusPill({ status, serverDown, onReload }: { status: Status | null; s
     tone = "bad";
     text = "Graph failed to load";
   } else {
-    text = `${status.targets.toLocaleString()} targets · loaded ${formatTime(status.loadedAt)}`;
+    const count = modules ? status.modules : status.targets;
+    text = `${count.toLocaleString()} ${modules ? "modules" : "targets"} · loaded ${formatTime(status.loadedAt)}`;
     if (status.loading) {
       tone = "busy";
       text = `Reloading… · showing graph from ${formatTime(status.loadedAt)}`;
@@ -673,23 +740,24 @@ function StatusPill({ status, serverDown, onReload }: { status: Status | null; s
 
 function LayerCaption({ loaded, loading }: { loaded: Loaded; loading: boolean }) {
   const step = loaded.key === null ? null : parseKey(loaded.key);
-  const name = step === null ? null : step.label.slice(step.label.lastIndexOf(":") + 1) || step.label;
+  const name = step === null ? null : shortName(step.label);
+  const modules = loaded.graph === "modules";
   const partial = loaded.items.length < loaded.total;
   return (
     <div className="caption">
       <h1>
         {name === null ? (
-          "Workspace roots"
+          modules ? "Root module" : "Workspace roots"
         ) : (
           <>
-            {step?.dir === "up" ? "Used by" : "Deps of"} <span className="mono">:{name}</span>
+            {step?.dir === "up" ? "Used by" : "Deps of"} <span className="mono">{name}</span>
           </>
         )}
       </h1>
-      {(name === null || partial || loading) && (
+      {((name === null && !modules) || partial || loading) && (
         <p>
-          {name === null && `${loaded.total.toLocaleString()} entry point${loaded.total === 1 ? "" : "s"}`}
-          {name === null && partial && " · "}
+          {name === null && !modules && `${loaded.total.toLocaleString()} entry point${loaded.total === 1 ? "" : "s"}`}
+          {name === null && !modules && partial && " · "}
           {partial && `showing ${loaded.items.length.toLocaleString()} of ${loaded.total.toLocaleString()}`}
           {loading && <LoaderCircle size={13} className="spin" aria-label="Loading" />}
         </p>
@@ -699,6 +767,7 @@ function LayerCaption({ loaded, loading }: { loaded: Loaded; loading: boolean })
 }
 
 function Overlay(props: {
+  graph: GraphKind;
   status: Status | null;
   serverDown: boolean;
   layer: Loaded | null;
@@ -706,7 +775,7 @@ function Overlay(props: {
   onRetryGraph(): void;
   onRetryLayer(): void;
 }) {
-  const { status, serverDown, layer, layerError } = props;
+  const { graph, status, serverDown, layer, layerError } = props;
 
   if (serverDown && status?.state !== "ready") {
     return (
@@ -737,11 +806,20 @@ function Overlay(props: {
   }
   if (layerError) {
     return (
-      <Panel title={layerErrorTitle(layerError.key)} tone="bad">
+      <Panel title={layerErrorTitle(graph, layerError.key, status.modulesError)} tone="bad">
         <pre>{layerError.message}</pre>
         <button type="button" className="btn" onClick={props.onRetryLayer}>
           <RefreshCw size={14} /> Try again
         </button>
+      </Panel>
+    );
+  }
+  if (layer && layer.key === null && layer.total === 0 && graph === "modules") {
+    return (
+      <Panel title="No modules in this workspace">
+        <p>
+          <code>bazel mod graph</code> found no root module.
+        </p>
       </Panel>
     );
   }
@@ -757,8 +835,9 @@ function Overlay(props: {
   return null;
 }
 
-function layerErrorTitle(key: string | null): string {
-  if (key === null) return "Couldn't load the roots";
+function layerErrorTitle(graph: GraphKind, key: string | null, modulesError?: string): string {
+  if (graph === "modules" && modulesError) return "Couldn't load the module graph";
+  if (key === null) return graph === "modules" ? "Couldn't load the root module" : "Couldn't load the roots";
   const { label, dir } = parseKey(key);
   return dir === "up" ? `Couldn't load what depends on ${label}` : `Couldn't load the deps of ${label}`;
 }

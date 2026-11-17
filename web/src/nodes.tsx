@@ -17,8 +17,28 @@ export const ActionsContext = createContext<CanvasActions>({
   hover: () => {},
 });
 
-/** Splits "//pkg/path:name" so the target name can carry the emphasis. */
+/**
+ * Whether a label names a Bazel module (name@version, from `bazel mod graph`)
+ * rather than a target. Target labels always start with "//" or "@".
+ */
+export function isModule(label: string): boolean {
+  return !label.startsWith("/") && !label.startsWith("@");
+}
+
+/** What to call a label's node in prose: "target" or "module". */
+export function noun(label: string): string {
+  return isModule(label) ? "module" : "target";
+}
+
+/** A label's short name for captions: ":name" for a target, the whole name@version for a module. */
+export function shortName(label: string): string {
+  if (isModule(label)) return label;
+  return ":" + (label.slice(label.lastIndexOf(":") + 1) || label);
+}
+
+/** Splits "//pkg/path:name" so the target name can carry the emphasis. A module's name@version is all name. */
 function splitLabel(label: string): { pkg: string; name: string } {
+  if (isModule(label)) return { pkg: "", name: label };
   const i = label.lastIndexOf(":");
   if (i <= 0) return { pkg: label, name: "" };
   return { pkg: label.slice(0, i), name: label.slice(i) };
@@ -118,7 +138,7 @@ export const TargetNode = memo(function TargetNode({ data }: NodeProps<GraphNode
             onBlur={() => actions.hover(null)}
             aria-label={
               up
-                ? `Open ${target.label}, used by ${plural(onward, "target")}`
+                ? `Open ${target.label}, used by ${plural(onward, noun(target.label))}`
                 : `Open ${target.label}, ${plural(onward, "direct dep")}`
             }
           >
@@ -150,7 +170,7 @@ function FocusNode({ target, dir }: { target: Target; dir: Direction }) {
           type="button"
           className="t-stub t-stub-up t-stub-btn nodrag"
           onClick={() => actions.open(target.label, "up")}
-          title={`Show the ${plural(target.parentCount, "target")} that depend on it directly`}
+          title={`Show the ${plural(target.parentCount, noun(target.label))} that depend on it directly`}
         >
           <span className="t-stub-line" />
           <span className="t-stub-count">
@@ -237,12 +257,12 @@ export const EmptyNode = memo(function EmptyNode({ data }: NodeProps<GraphNode &
           {dir === "up" ? (
             <>
               <strong>Not used</strong>
-              <span>No other target depends on {name}.</span>
+              <span>No other {noun(label)} depends on {name}.</span>
             </>
           ) : (
             <>
               <strong>No deps</strong>
-              <span>{name} doesn't depend on any other target.</span>
+              <span>{name} doesn't depend on any other {noun(label)}.</span>
             </>
           )}
         </div>

@@ -33,11 +33,22 @@ type Source interface {
 	FileHotspots(opts graph.Options) graph.Page
 }
 
-// Loader produces a fresh Source. A non-empty warning marks it as incomplete.
-type Loader func(ctx context.Context) (src Source, warning string, err error)
+// Graphs is what a Loader produces: the target graph, and the graph of Bazel
+// modules when it could be loaded.
+type Graphs struct {
+	Targets Source
+	// Modules is nil when the module graph could not be loaded, for example in
+	// a workspace without Bzlmod; ModulesError says why.
+	Modules      Source
+	ModulesError string
+}
+
+// Loader produces fresh graphs. A non-empty warning marks the target graph as
+// incomplete.
+type Loader func(ctx context.Context) (graphs Graphs, warning string, err error)
 
 type snapshot struct {
-	source   Source
+	graphs   Graphs
 	warning  string
 	loadedAt time.Time
 }
@@ -76,7 +87,7 @@ func (s *Server) Refresh() {
 
 func (s *Server) runLoads() {
 	for {
-		src, warning, err := s.load(s.ctx)
+		graphs, warning, err := s.load(s.ctx)
 
 		s.mu.Lock()
 		if err != nil {
@@ -84,8 +95,8 @@ func (s *Server) runLoads() {
 			log.Printf("graph load failed: %v", err)
 		} else {
 			s.lastErr = ""
-			s.cur.Store(&snapshot{source: src, warning: warning, loadedAt: time.Now()})
-			log.Printf("graph loaded: %d targets", src.Len())
+			s.cur.Store(&snapshot{graphs: graphs, warning: warning, loadedAt: time.Now()})
+			log.Printf("graph loaded: %d targets", graphs.Targets.Len())
 		}
 		if !s.pending {
 			s.loading = false
@@ -113,9 +124,12 @@ type statusResponse struct {
 	State    string     `json:"state"` // "loading", "ready" or "error".
 	Loading  bool       `json:"loading"`
 	Targets  int        `json:"targets"`
+	Modules  int        `json:"modules"`
 	LoadedAt *time.Time `json:"loadedAt,omitempty"`
 	Warning  string     `json:"warning,omitempty"`
 	Error    string     `json:"error,omitempty"`
+	// ModulesError says why the module graph is missing from a ready snapshot.
+	ModulesError string `json:"modulesError,omitempty"`
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +141,11 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case snap != nil:
 		resp.State = "ready"
-		resp.Targets = snap.source.Len()
+		resp.Targets = snap.graphs.Targets.Len()
+		if snap.graphs.Modules != nil {
+			resp.Modules = snap.graphs.Modules.Len()
+		}
+		resp.ModulesError = snap.graphs.ModulesError
 		resp.LoadedAt = &snap.loadedAt
 		resp.Warning = snap.warning
 	case resp.Error != "" && !resp.Loading:
@@ -157,7 +175,7 @@ func (s *Server) handleRoots(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	src, ok := s.source(w)
+	src, ok := s.source(w, r)
 	if !ok {
 		return
 	}
@@ -185,7 +203,7 @@ func (s *Server) handleNeighbours(w http.ResponseWriter, r *http.Request, list f
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	src, ok := s.source(w)
+	src, ok := s.source(w, r)
 	if !ok {
 		return
 	}
@@ -219,7 +237,7 @@ func (s *Server) handleHotspots(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid of: %q (must be targets or files)", of))
 		return
 	}
-	src, ok := s.source(w)
+	src, ok := s.source(w, r)
 	if !ok {
 		return
 	}
@@ -230,14 +248,28 @@ func (s *Server) handleHotspots(w http.ResponseWriter, r *http.Request) {
 	writePage(w, src.Hotspots(opts), opts)
 }
 
-// source returns the current graph, or writes a 503 if none has loaded yet.
-func (s *Server) source(w http.ResponseWriter) (Source, bool) {
+// source returns the graph the request asks for: the targets (graph=targets,
+// the default) or the modules (graph=modules). It writes an error instead if
+// the name is unknown, or if that graph has not loaded.
+func (s *Server) source(w http.ResponseWriter, r *http.Request) (Source, bool) {
+	name := r.URL.Query().Get("graph")
+	if name != "" && name != "targets" && name != "modules" {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid graph: %q (must be targets or modules)", name))
+		return nil, false
+	}
 	snap := s.cur.Load()
 	if snap == nil {
 		writeError(w, http.StatusServiceUnavailable, "graph is not loaded; see /api/status")
 		return nil, false
 	}
-	return snap.source, true
+	if name != "modules" {
+		return snap.graphs.Targets, true
+	}
+	if snap.graphs.Modules == nil {
+		writeError(w, http.StatusServiceUnavailable, "module graph is not available: "+snap.graphs.ModulesError)
+		return nil, false
+	}
+	return snap.graphs.Modules, true
 }
 
 func parseOptions(r *http.Request) (graph.Options, error) {

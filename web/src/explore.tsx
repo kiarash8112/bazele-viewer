@@ -20,9 +20,9 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { ArrowUp, ChevronDown, ChevronUp, LoaderCircle, Plus } from "lucide-react";
-import { fetchLayer, PAGE_SIZE, type Direction, type Target } from "./api";
+import { fetchLayer, PAGE_SIZE, type Direction, type GraphKind, type Target } from "./api";
 import { NODE_H, NODE_W } from "./layout";
-import { ExternalBadge, Label } from "./nodes";
+import { ExternalBadge, Label, noun, shortName } from "./nodes";
 
 const STUB = 40; // Room for the deps stub under a target.
 const GAP_X = 28;
@@ -206,6 +206,8 @@ function buildGraph(
 }
 
 export function ExploreCanvas(props: {
+  /** The graph to walk. Changing it needs a new canvas: give each graph its own React key. */
+  graph: GraphKind;
   /** Where to start: a target looking one way, or the roots (null). */
   seed: { label: string; dir: Direction } | null;
   version: string;
@@ -213,7 +215,7 @@ export function ExploreCanvas(props: {
   reduceMotion: boolean;
   onError(message: string): void;
 }) {
-  const { seed, version, narrow, reduceMotion, onError } = props;
+  const { graph, seed, version, narrow, reduceMotion, onError } = props;
   const [seeds, setSeeds] = useState<Target[] | null>(null);
   const [exps, setExps] = useState<Map<string, Expansion>>(() => new Map());
   const [hovered, setHovered] = useState<string | null>(null);
@@ -236,7 +238,7 @@ export function ExploreCanvas(props: {
     framed.current = false;
     (async () => {
       try {
-        const page = await fetchLayer(seed?.label ?? null, seed?.dir ?? "down", 0, ctl.signal);
+        const page = await fetchLayer(graph, seed?.label ?? null, seed?.dir ?? "down", 0, ctl.signal);
         if (gen !== generation.current) return;
         for (const t of page.nodes) known.current.set(t.label, t);
         if (seed && page.target) {
@@ -338,7 +340,7 @@ export function ExploreCanvas(props: {
       }
       setExps((prev) => new Map(prev).set(key, { items: [], total: 0, loading: true }));
       try {
-        const page = await fetchLayer(label, dir, 0);
+        const page = await fetchLayer(graph, label, dir, 0);
         if (gen !== generation.current) return;
         for (const t of page.nodes) known.current.set(t.label, t);
         if (page.target) known.current.set(page.target.label, page.target);
@@ -356,7 +358,7 @@ export function ExploreCanvas(props: {
         onError(message(err));
       }
     },
-    [onError],
+    [graph, onError],
   );
 
   const loadMore = useCallback(
@@ -367,7 +369,7 @@ export function ExploreCanvas(props: {
       const { label, dir } = parseExpKey(owner);
       setExps((prev) => new Map(prev).set(owner, { ...cur, loading: true }));
       try {
-        const page = await fetchLayer(label, dir, cur.items.length);
+        const page = await fetchLayer(graph, label, dir, cur.items.length);
         if (gen !== generation.current) return;
         for (const t of page.nodes) known.current.set(t.label, t);
         setExps((prev) => {
@@ -384,12 +386,12 @@ export function ExploreCanvas(props: {
         onError(`Couldn't load more: ${message(err)}`);
       }
     },
-    [onError],
+    [graph, onError],
   );
 
   const actions = useMemo(() => ({ toggle, loadMore }), [toggle, loadMore]);
   const shown = nodes.filter((n) => n.type === "x").length;
-  const seedName = seed ? seed.label.slice(seed.label.lastIndexOf(":") + 1) || seed.label : null;
+  const seedName = seed ? shortName(seed.label) : null;
 
   return (
     <main className="canvas" ref={canvasRef} aria-busy={seeds === null}>
@@ -428,14 +430,14 @@ export function ExploreCanvas(props: {
         <div className="caption">
           <h1>
             {seedName === null ? (
-              "Workspace roots"
+              graph === "modules" ? "Root module" : "Workspace roots"
             ) : (
               <>
-                {seed?.dir === "up" ? "Used by" : "Deps of"} <span className="mono">:{seedName}</span>
+                {seed?.dir === "up" ? "Used by" : "Deps of"} <span className="mono">{seedName}</span>
               </>
             )}
           </h1>
-          <p>{plural(shown, "target")} shown · click to expand, again to fold</p>
+          <p>{plural(shown, graph === "modules" ? "module" : "target")} shown · click to expand, again to fold</p>
         </div>
       )}
     </main>
@@ -470,7 +472,7 @@ const XTarget = memo(function XTarget({ data }: NodeProps<XNode & { type: "x" }>
                 title={
                   up
                     ? "Fold away what depends on it"
-                    : `Show the ${plural(target.parentCount, "target")} that depend on it directly`
+                    : `Show the ${plural(target.parentCount, noun(target.label))} that depend on it directly`
                 }
               >
                 {up?.loading ? <LoaderCircle size={11} className="spin" /> : <ArrowUp size={11} strokeWidth={2.25} />}
